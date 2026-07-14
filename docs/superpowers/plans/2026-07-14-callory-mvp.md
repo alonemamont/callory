@@ -4,19 +4,22 @@
 
 **Goal:** Build the offline Flutter calorie/macro tracker described in `docs/superpowers/specs/2026-07-13-callory-design.md` — private food database, gap-based editable meal grouping, BMR-based or manual goals, JSON export/import.
 
+> **Revised 2026-07-14** to follow the spec revisions made in response to `docs/superpowers/specs/2026-07-14-callory-spec-review.md`. Nothing had been implemented yet at the time of revision, so this plan was edited directly rather than patched post-hoc. Changed: Task 2 (schema — `occurred_at`/`created_at`/`updated_at`, `ON DELETE SET NULL`), Task 3 (grouping algorithm rewritten as a full deterministic regroup), Task 8 (`DiaryRepository` rebuilt around one `regroupDay`, plus `deleteEntry`/`splitEntriesIntoNewMeal`/`mergeMeals`), Task 9 (confirmed, no code change), Task 10/13 (added tests), Task 15 (meal display order fix), and every call site that referenced the old `loggedAt` field name.
+
 **Architecture:** UI (widgets) → Riverpod providers → Repositories (Food/Diary/Goals) → Drift (SQLite) local storage. Food lookup goes through a `FoodSource` interface with two MVP implementations: the user's private food database and Open Food Facts (keyless HTTP). No backend, no accounts.
 
 **Tech Stack:** Flutter, Riverpod (`flutter_riverpod`), Drift (SQLite) for local storage, `http` for Open Food Facts, `mobile_scanner` for barcode scanning, `shared_preferences` for the gap-window setting, `file_picker` + `share_plus` for JSON export/import.
 
 ## Global Constraints
 
-- Fully offline app: no backend, no user accounts, no cloud sync (per spec Architecture section).
+- Offline-first app: no backend, no user accounts, no cloud sync; Open Food Facts lookup is the one HTTP dependency and degrades gracefully offline (per spec Overview).
 - MVP nutrient scope is exactly kcal + protein + fat + carbs — no other nutrients, no weight/water tracking (per spec Overview).
-- Quantity input is grams-only in MVP (per spec Overview).
-- Diary entries snapshot nutrition at log time; editing or deleting a `PrivateFood` must never change past `DiaryEntry` values (per spec "Nutrition snapshotting").
-- Meal grouping is rolling-gap based on `logged_at`, evaluated within a single `entry_date`; `Meal` rows with `is_manual = true` are never touched by auto-regrouping (per spec "Meal grouping algorithm").
+- Quantity input is grams-only in MVP (per spec Overview); `grams` must be `> 0`, nutrient fields `>= 0` (per spec "Domain rules and constraints").
+- Diary entries snapshot nutrition at log time; editing or deleting a `PrivateFood` must never change past `DiaryEntry` values — deleting a `PrivateFood` sets `private_food_id` to `NULL` via `ON DELETE SET NULL` (per spec "Nutrition snapshotting" and "Domain rules and constraints").
+- Meal grouping is a full deterministic regroup of the auto (non-manual) partition based on `occurred_at`, evaluated within a single `entry_date`, re-run on every add/edit/delete — never an incremental "compare to the last meal" step. `Meal` rows with `is_manual = true` are never touched by auto-regrouping, and any meal (manual or auto) left empty is deleted (per spec "Meal grouping algorithm" and "Manual meal invariants").
 - FatSecret is explicitly excluded from MVP (no backend to hold its client secret); only `OpenFoodFactsSource` (keyless) and the private food database are built. `FoodSource` is an interface so a paid source can be added later (per spec "Food sources").
-- JSON import is a full replacement of local data, never a merge (per spec "Export / Import").
+- JSON import is a full replacement of local data, never a merge, and is atomic — any failure mid-import leaves the existing database unchanged (per spec "Export / Import").
+- `Goals` is a single current record with no per-day history; the day view always shows the current goal regardless of which date is selected (per spec "Goals and BMR/TDEE calculation" > Goals history).
 - Free app, no monetization, no ads SDKs.
 
 ---
@@ -31,7 +34,7 @@ callory/
     db/
       database.dart              # Drift tables + AppDatabase
     domain/
-      meal_grouping.dart          # assignMeal() pure function
+      meal_grouping.dart          # clusterAutoEntries() pure function
       bmr_calculator.dart         # calculateGoals() pure function
       entry_rescale.dart          # rescaleSnapshot() pure function
       food_source.dart            # FoodSource interface + FoodResult model
@@ -179,7 +182,7 @@ enum GoalsMode { calculated, manual }
 class PrivateFoods extends Table {
   IntColumn get id => integer().autoIncrement()();
   TextColumn get name => text()();
-  TextColumn get barcode => text().nullable()();
+  TextColumn get barcode => text().nullable()(); // intentionally not unique — see spec "Domain rules and constraints"
   RealColumn get kcalPer100g => real()();
   RealColumn get proteinPer100g => real()();
   RealColumn get fatPer100g => real()();
@@ -198,15 +201,18 @@ class Meals extends Table {
 class DiaryEntries extends Table {
   IntColumn get id => integer().autoIncrement()();
   IntColumn get mealId => integer().references(Meals, #id)();
-  IntColumn get privateFoodId =>
-      integer().nullable().references(PrivateFoods, #id)();
+  IntColumn get privateFoodId => integer()
+      .nullable()
+      .references(PrivateFoods, #id, onDelete: KeyAction.setNull)();
   TextColumn get foodNameSnapshot => text()();
   RealColumn get grams => real()();
   RealColumn get kcalSnapshot => real()();
   RealColumn get proteinSnapshot => real()();
   RealColumn get fatSnapshot => real()();
   RealColumn get carbsSnapshot => real()();
-  DateTimeColumn get loggedAt => dateTime()();
+  DateTimeColumn get occurredAt => dateTime()();
+  DateTimeColumn get createdAt => dateTime()();
+  DateTimeColumn get updatedAt => dateTime().nullable()();
   DateTimeColumn get entryDate => dateTime()();
 }
 
@@ -232,6 +238,15 @@ class AppDatabase extends _$AppDatabase {
 
   @override
   int get schemaVersion => 1;
+
+  @override
+  MigrationStrategy get migration => MigrationStrategy(
+        beforeOpen: (details) async {
+          // Required for the DiaryEntries.privateFoodId ON DELETE SET NULL
+          // action to actually fire — SQLite does not enforce FKs by default.
+          await customStatement('PRAGMA foreign_keys = ON');
+        },
+      );
 
   static QueryExecutor _openConnection() {
     return LazyDatabase(() async {
@@ -270,12 +285,14 @@ git commit -m "feat: add Drift schema for foods, meals, diary entries, goals"
 
 ### Task 3: Meal grouping algorithm
 
+> **Revised after spec review** (`2026-07-14-callory-spec-review.md`): the original design compared each new entry only to "the last non-manual meal," which breaks for backdated entries (chronologically-earlier `occurred_at`) and can't handle inserting an entry in the middle of a day. Replaced with a pure clustering function that always re-derives auto-meal groups from a full sorted pass, matching the spec's "Meal grouping algorithm" section. This function has no notion of "last meal" or incremental comparison at all — every caller (add/edit/delete) always recomputes the full clustering for the day's auto-partition, per spec.
+
 **Files:**
 - Create: `lib/domain/meal_grouping.dart`
 - Test: `test/domain/meal_grouping_test.dart`
 
 **Interfaces:**
-- Produces: `MealSummary` (`{int id, int mealNumber, bool isManual, DateTime? lastEntryLoggedAt}`), `MealGroupingResult` (`{bool createNew, int? mealId, int mealNumber}`), `MealGroupingResult assignMeal({required DateTime newLoggedAt, required List<MealSummary> existingMealsForDay, required Duration gapWindow})`.
+- Produces: `AutoEntry` (`{int id, DateTime occurredAt}`), `MealCluster` (`{int mealNumber, List<int> entryIds}`), `List<MealCluster> clusterAutoEntries({required List<AutoEntry> autoEntries, required Duration gapWindow, required int startingMealNumber})`. `autoEntries` is expected to already exclude any entry currently assigned to a manual meal — filtering that out is the caller's (`DiaryRepository`'s) job, per spec "Manual meal invariants." `startingMealNumber` is `(max manual meal_number for the day, or 0) + 1`.
 - Consumes: nothing (pure Dart, no Flutter/Drift imports).
 
 - [ ] **Step 1: Write the failing tests**
@@ -289,108 +306,102 @@ import 'package:callory/domain/meal_grouping.dart';
 void main() {
   const gapWindow = Duration(minutes: 90);
 
-  test('empty day creates meal number 1', () {
-    final result = assignMeal(
-      newLoggedAt: DateTime(2026, 7, 14, 8, 0),
-      existingMealsForDay: [],
+  test('empty input produces no clusters', () {
+    final clusters = clusterAutoEntries(
+      autoEntries: [],
       gapWindow: gapWindow,
+      startingMealNumber: 1,
     );
-    expect(result.createNew, true);
-    expect(result.mealNumber, 1);
+    expect(clusters, isEmpty);
   });
 
-  test('entry within gap joins the last non-manual meal', () {
-    final result = assignMeal(
-      newLoggedAt: DateTime(2026, 7, 14, 8, 30),
-      existingMealsForDay: [
-        MealSummary(
-          id: 1,
-          mealNumber: 1,
-          isManual: false,
-          lastEntryLoggedAt: DateTime(2026, 7, 14, 8, 0),
-        ),
+  test('two entries within the gap form a single cluster', () {
+    final clusters = clusterAutoEntries(
+      autoEntries: [
+        AutoEntry(id: 1, occurredAt: DateTime(2026, 7, 14, 8, 0)),
+        AutoEntry(id: 2, occurredAt: DateTime(2026, 7, 14, 8, 30)),
       ],
       gapWindow: gapWindow,
+      startingMealNumber: 1,
     );
-    expect(result.createNew, false);
-    expect(result.mealId, 1);
-    expect(result.mealNumber, 1);
+    expect(clusters, hasLength(1));
+    expect(clusters.single.mealNumber, 1);
+    expect(clusters.single.entryIds, [1, 2]);
   });
 
-  test('entry exactly at the gap boundary joins the same meal', () {
-    final result = assignMeal(
-      newLoggedAt: DateTime(2026, 7, 14, 9, 30),
-      existingMealsForDay: [
-        MealSummary(
-          id: 1,
-          mealNumber: 1,
-          isManual: false,
-          lastEntryLoggedAt: DateTime(2026, 7, 14, 8, 0),
-        ),
+  test('entry exactly at the gap boundary joins the same cluster', () {
+    final clusters = clusterAutoEntries(
+      autoEntries: [
+        AutoEntry(id: 1, occurredAt: DateTime(2026, 7, 14, 8, 0)),
+        AutoEntry(id: 2, occurredAt: DateTime(2026, 7, 14, 9, 30)),
       ],
       gapWindow: gapWindow,
+      startingMealNumber: 1,
     );
-    expect(result.createNew, false);
-    expect(result.mealId, 1);
+    expect(clusters, hasLength(1));
+    expect(clusters.single.entryIds, [1, 2]);
   });
 
-  test('entry just past the gap starts a new meal', () {
-    final result = assignMeal(
-      newLoggedAt: DateTime(2026, 7, 14, 9, 31),
-      existingMealsForDay: [
-        MealSummary(
-          id: 1,
-          mealNumber: 1,
-          isManual: false,
-          lastEntryLoggedAt: DateTime(2026, 7, 14, 8, 0),
-        ),
+  test('entry just past the gap starts a new cluster', () {
+    final clusters = clusterAutoEntries(
+      autoEntries: [
+        AutoEntry(id: 1, occurredAt: DateTime(2026, 7, 14, 8, 0)),
+        AutoEntry(id: 2, occurredAt: DateTime(2026, 7, 14, 9, 31)),
       ],
       gapWindow: gapWindow,
+      startingMealNumber: 1,
     );
-    expect(result.createNew, true);
-    expect(result.mealNumber, 2);
+    expect(clusters, hasLength(2));
+    expect(clusters[0].entryIds, [1]);
+    expect(clusters[1].entryIds, [2]);
+    expect(clusters.map((c) => c.mealNumber).toList(), [1, 2]);
   });
 
-  test('manual meals are skipped when finding the last meal to compare against', () {
-    final result = assignMeal(
-      newLoggedAt: DateTime(2026, 7, 14, 13, 5),
-      existingMealsForDay: [
-        MealSummary(
-          id: 1,
-          mealNumber: 1,
-          isManual: false,
-          lastEntryLoggedAt: DateTime(2026, 7, 14, 8, 0),
-        ),
-        MealSummary(
-          id: 2,
-          mealNumber: 2,
-          isManual: true,
-          lastEntryLoggedAt: DateTime(2026, 7, 14, 13, 0),
-        ),
+  test('clustering sorts by occurredAt regardless of input order, fixing the insert-in-the-middle case', () {
+    // Entry 3 is passed first but its occurredAt falls between entries 1 and 2.
+    // All three are within gapWindow of their chronological neighbor, so they
+    // must all land in one cluster no matter what order they're supplied in.
+    final clusters = clusterAutoEntries(
+      autoEntries: [
+        AutoEntry(id: 3, occurredAt: DateTime(2026, 7, 14, 8, 30)),
+        AutoEntry(id: 1, occurredAt: DateTime(2026, 7, 14, 8, 0)),
+        AutoEntry(id: 2, occurredAt: DateTime(2026, 7, 14, 9, 0)),
       ],
       gapWindow: gapWindow,
+      startingMealNumber: 1,
     );
-    // Meal 2 is manual and must be ignored even though it's chronologically
-    // closer; comparison falls back to meal 1, which is far outside the gap.
-    expect(result.createNew, true);
-    expect(result.mealNumber, 3);
+    expect(clusters, hasLength(1));
+    expect(clusters.single.entryIds, [1, 3, 2]);
   });
 
-  test('all meals manual falls back to creating a new meal after the highest number', () {
-    final result = assignMeal(
-      newLoggedAt: DateTime(2026, 7, 14, 8, 5),
-      existingMealsForDay: [
-        MealSummary(
-          id: 1,
-          mealNumber: 1,
-          isManual: true,
-          lastEntryLoggedAt: DateTime(2026, 7, 14, 8, 0),
-        ),
+  test('backdating an entry earlier than everything else never produces a negative-gap false match', () {
+    // Old bug: comparing only against "the last meal" let a much-earlier
+    // occurredAt produce a negative time difference, which satisfied
+    // `<= gapWindow` and silently joined the wrong meal. Sorting first
+    // makes this impossible: entry 4 is 5 hours before entry 1, so it must
+    // start its own cluster.
+    final clusters = clusterAutoEntries(
+      autoEntries: [
+        AutoEntry(id: 1, occurredAt: DateTime(2026, 7, 14, 13, 0)),
+        AutoEntry(id: 4, occurredAt: DateTime(2026, 7, 14, 8, 0)),
       ],
       gapWindow: gapWindow,
+      startingMealNumber: 1,
     );
-    expect(result.createNew, true);
-    expect(result.mealNumber, 2);
+    expect(clusters, hasLength(2));
+    expect(clusters[0].entryIds, [4]);
+    expect(clusters[1].entryIds, [1]);
+  });
+
+  test('startingMealNumber offsets past existing manual meal numbers', () {
+    final clusters = clusterAutoEntries(
+      autoEntries: [
+        AutoEntry(id: 1, occurredAt: DateTime(2026, 7, 14, 8, 0)),
+      ],
+      gapWindow: gapWindow,
+      startingMealNumber: 6, // e.g. a manual meal already holds number 5
+    );
+    expect(clusters.single.mealNumber, 6);
   });
 }
 ```
@@ -408,60 +419,56 @@ Expected: FAIL — `package:callory/domain/meal_grouping.dart` doesn't exist yet
 Create `lib/domain/meal_grouping.dart`:
 
 ```dart
-class MealSummary {
+class AutoEntry {
   final int id;
-  final int mealNumber;
-  final bool isManual;
-  final DateTime? lastEntryLoggedAt;
+  final DateTime occurredAt;
 
-  const MealSummary({
-    required this.id,
-    required this.mealNumber,
-    required this.isManual,
-    required this.lastEntryLoggedAt,
-  });
+  const AutoEntry({required this.id, required this.occurredAt});
 }
 
-class MealGroupingResult {
-  final bool createNew;
-  final int? mealId;
+class MealCluster {
   final int mealNumber;
+  final List<int> entryIds;
 
-  const MealGroupingResult({
-    required this.createNew,
-    this.mealId,
-    required this.mealNumber,
-  });
+  const MealCluster({required this.mealNumber, required this.entryIds});
 }
 
-MealGroupingResult assignMeal({
-  required DateTime newLoggedAt,
-  required List<MealSummary> existingMealsForDay,
+/// Deterministically clusters [autoEntries] (which must already exclude any
+/// entry currently in a manual meal) into meals using rolling-gap grouping.
+/// Always re-derives the full clustering from a fresh sort — there is no
+/// incremental "compare to the last meal" step, so inserting an entry
+/// anywhere in the day (including earlier than existing entries) is handled
+/// correctly by construction.
+List<MealCluster> clusterAutoEntries({
+  required List<AutoEntry> autoEntries,
   required Duration gapWindow,
+  required int startingMealNumber,
 }) {
-  final maxMealNumber = existingMealsForDay.isEmpty
-      ? 0
-      : existingMealsForDay.map((m) => m.mealNumber).reduce((a, b) => a > b ? a : b);
+  final sorted = [...autoEntries]..sort((a, b) {
+      final byTime = a.occurredAt.compareTo(b.occurredAt);
+      return byTime != 0 ? byTime : a.id.compareTo(b.id);
+    });
 
-  final nonManual = existingMealsForDay.where((m) => !m.isManual).toList()
-    ..sort((a, b) => a.mealNumber.compareTo(b.mealNumber));
+  final clusters = <MealCluster>[];
+  var mealNumber = startingMealNumber;
+  List<int>? currentIds;
+  DateTime? previousOccurredAt;
 
-  if (nonManual.isEmpty) {
-    return MealGroupingResult(createNew: true, mealNumber: maxMealNumber + 1);
+  for (final entry in sorted) {
+    final startsNewCluster = currentIds == null ||
+        entry.occurredAt.difference(previousOccurredAt!) > gapWindow;
+
+    if (startsNewCluster) {
+      currentIds = <int>[];
+      clusters.add(MealCluster(mealNumber: mealNumber, entryIds: currentIds));
+      mealNumber++;
+    }
+
+    currentIds!.add(entry.id);
+    previousOccurredAt = entry.occurredAt;
   }
 
-  final lastMeal = nonManual.last;
-  final lastEntryTime = lastMeal.lastEntryLoggedAt;
-  if (lastEntryTime != null &&
-      newLoggedAt.difference(lastEntryTime) <= gapWindow) {
-    return MealGroupingResult(
-      createNew: false,
-      mealId: lastMeal.id,
-      mealNumber: lastMeal.mealNumber,
-    );
-  }
-
-  return MealGroupingResult(createNew: true, mealNumber: maxMealNumber + 1);
+  return clusters;
 }
 ```
 
@@ -471,13 +478,13 @@ MealGroupingResult assignMeal({
 flutter test test/domain/meal_grouping_test.dart
 ```
 
-Expected: PASS, all 6 tests green.
+Expected: PASS, all 7 tests green.
 
 - [ ] **Step 5: Commit**
 
 ```bash
 git add lib/domain/meal_grouping.dart test/domain/meal_grouping_test.dart
-git commit -m "feat: add rolling-gap meal grouping algorithm"
+git commit -m "feat: add deterministic full-day meal clustering algorithm"
 ```
 
 ---
@@ -1056,13 +1063,15 @@ git commit -m "feat: add FoodRepository for private food CRUD and search"
 
 ### Task 8: DiaryRepository (meals, entries, regrouping)
 
+> **Revised after spec review**: `addEntry`, `updateEntryOccurredAt` (renamed from `updateEntryLoggedAt`), and the new `deleteEntry` all funnel through one `regroupDay`, which now uses `clusterAutoEntries` (Task 3) for a full deterministic rebuild instead of the old incremental compare-to-last-meal step. Added `deleteEntry`, `splitEntriesIntoNewMeal`, and `mergeMeals` to cover the move/split/merge state-transition matrix the spec now defines explicitly; `reassignEntryToMeal` is renamed `moveEntryToMeal` to match spec terminology. Empty-meal cleanup now applies to manual meals too, not just auto ones.
+
 **Files:**
 - Create: `lib/data/diary_repository.dart`
 - Test: `test/data/diary_repository_test.dart`
 
 **Interfaces:**
-- Consumes: `AppDatabase` (Task 2), `assignMeal`/`MealSummary` (Task 3), `rescaleSnapshot`/`NutrientSnapshot` (Task 5).
-- Produces: `DiaryRepository` with `addEntry(...)`, `updateEntryGrams(int entryId, double newGrams)`, `updateEntryLoggedAt(int entryId, DateTime newLoggedAt, Duration gapWindow)`, `regroupDay(DateTime date, Duration gapWindow)`, `markMealManual(int mealId, {bool isManual})`, `reassignEntryToMeal(int entryId, int targetMealId)`, `createManualMeal(DateTime date, int mealNumber)`, `getEntriesForDate(DateTime date)`, `getMealsForDate(DateTime date)`.
+- Consumes: `AppDatabase` (Task 2), `clusterAutoEntries`/`AutoEntry` (Task 3), `rescaleSnapshot`/`NutrientSnapshot` (Task 5).
+- Produces: `DiaryRepository` with `addEntry(...)` (param `occurredAt` replaces `loggedAt`), `updateEntryGrams(int entryId, double newGrams)`, `updateEntryOccurredAt(int entryId, DateTime newOccurredAt, Duration gapWindow)`, `deleteEntry(int entryId, Duration gapWindow)`, `regroupDay(DateTime date, Duration gapWindow)`, `moveEntryToMeal(int entryId, int targetMealId)`, `splitEntriesIntoNewMeal({required List<int> entryIds, required DateTime date, required int newMealNumber})`, `mergeMeals({required int keepMealId, required int otherMealId})`, `createManualMeal(DateTime date, int mealNumber)`, `getEntriesForDate(DateTime date)`, `getMealsForDate(DateTime date)`.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -1078,6 +1087,7 @@ void main() {
   late AppDatabase db;
   late DiaryRepository repo;
   const gapWindow = Duration(minutes: 90);
+  final day = DateTime(2026, 7, 14);
 
   setUp(() {
     db = AppDatabase.forTesting(NativeDatabase.memory());
@@ -1088,31 +1098,21 @@ void main() {
     await db.close();
   });
 
-  test('two entries within the gap land in the same meal', () async {
-    final day = DateTime(2026, 7, 14);
+  Future<int> addEggs(DateTime occurredAt) => repo.addEntry(
+        foodNameSnapshot: 'Eggs',
+        grams: 100,
+        kcalPer100g: 150,
+        proteinPer100g: 12,
+        fatPer100g: 10,
+        carbsPer100g: 1,
+        entryDate: day,
+        occurredAt: occurredAt,
+        gapWindow: gapWindow,
+      );
 
-    await repo.addEntry(
-      foodNameSnapshot: 'Eggs',
-      grams: 100,
-      kcalPer100g: 150,
-      proteinPer100g: 12,
-      fatPer100g: 10,
-      carbsPer100g: 1,
-      entryDate: day,
-      loggedAt: DateTime(2026, 7, 14, 8, 0),
-      gapWindow: gapWindow,
-    );
-    await repo.addEntry(
-      foodNameSnapshot: 'Toast',
-      grams: 50,
-      kcalPer100g: 265,
-      proteinPer100g: 9,
-      fatPer100g: 3,
-      carbsPer100g: 49,
-      entryDate: day,
-      loggedAt: DateTime(2026, 7, 14, 8, 20),
-      gapWindow: gapWindow,
-    );
+  test('two entries within the gap land in the same meal', () async {
+    await addEggs(DateTime(2026, 7, 14, 8, 0));
+    await addEggs(DateTime(2026, 7, 14, 8, 20));
 
     final meals = await repo.getMealsForDate(day);
     expect(meals, hasLength(1));
@@ -1124,39 +1124,15 @@ void main() {
   });
 
   test('entries past the gap create a second meal', () async {
-    final day = DateTime(2026, 7, 14);
-
-    await repo.addEntry(
-      foodNameSnapshot: 'Eggs',
-      grams: 100,
-      kcalPer100g: 150,
-      proteinPer100g: 12,
-      fatPer100g: 10,
-      carbsPer100g: 1,
-      entryDate: day,
-      loggedAt: DateTime(2026, 7, 14, 8, 0),
-      gapWindow: gapWindow,
-    );
-    await repo.addEntry(
-      foodNameSnapshot: 'Lunch Rice',
-      grams: 200,
-      kcalPer100g: 130,
-      proteinPer100g: 3,
-      fatPer100g: 0.3,
-      carbsPer100g: 28,
-      entryDate: day,
-      loggedAt: DateTime(2026, 7, 14, 13, 0),
-      gapWindow: gapWindow,
-    );
+    await addEggs(DateTime(2026, 7, 14, 8, 0));
+    await addEggs(DateTime(2026, 7, 14, 13, 0));
 
     final meals = await repo.getMealsForDate(day);
     expect(meals, hasLength(2));
     expect(meals.map((m) => m.mealNumber).toList(), [1, 2]);
   });
 
-  test('addEntry stores a nutrition snapshot scaled to grams', () async {
-    final day = DateTime(2026, 7, 14);
-
+  test('addEntry stores a nutrition snapshot scaled to grams and stamps createdAt', () async {
     await repo.addEntry(
       foodNameSnapshot: 'Chicken Breast',
       grams: 150,
@@ -1165,18 +1141,33 @@ void main() {
       fatPer100g: 3.6,
       carbsPer100g: 0,
       entryDate: day,
-      loggedAt: DateTime(2026, 7, 14, 12, 0),
+      occurredAt: DateTime(2026, 7, 14, 12, 0),
       gapWindow: gapWindow,
     );
 
     final entries = await repo.getEntriesForDate(day);
     expect(entries.single.kcalSnapshot, closeTo(247.5, 0.01));
     expect(entries.single.proteinSnapshot, closeTo(46.5, 0.01));
+    expect(entries.single.createdAt, isNotNull);
+    expect(entries.single.updatedAt, isNull);
+  });
+
+  test('adding an entry chronologically between two existing entries merges all three into one meal regardless of add order', () async {
+    // Regression test for the "last non-manual meal" bug: the middle entry
+    // is added last, after two entries that are already 90+ minutes apart at
+    // the DB level from each other's perspective, but each neighbor is
+    // within gapWindow of the middle entry.
+    await addEggs(DateTime(2026, 7, 14, 8, 0));
+    await addEggs(DateTime(2026, 7, 14, 9, 0));
+    await addEggs(DateTime(2026, 7, 14, 8, 30)); // added last, sorts in the middle
+
+    final meals = await repo.getMealsForDate(day);
+    expect(meals, hasLength(1));
+    final entries = await repo.getEntriesForDate(day);
+    expect(entries, hasLength(3));
   });
 
   test('updateEntryGrams rescales from the original snapshot ratio, not current food data', () async {
-    final day = DateTime(2026, 7, 14);
-
     final id = await repo.addEntry(
       foodNameSnapshot: 'Rice',
       grams: 100,
@@ -1185,7 +1176,7 @@ void main() {
       fatPer100g: 0.3,
       carbsPer100g: 28,
       entryDate: day,
-      loggedAt: DateTime(2026, 7, 14, 12, 0),
+      occurredAt: DateTime(2026, 7, 14, 12, 0),
       gapWindow: gapWindow,
     );
 
@@ -1194,66 +1185,34 @@ void main() {
     final entries = await repo.getEntriesForDate(day);
     expect(entries.single.grams, 200);
     expect(entries.single.kcalSnapshot, closeTo(260, 0.01));
+    expect(entries.single.updatedAt, isNotNull);
   });
 
-  test('reassignEntryToMeal marks target meal manual and moves the entry', () async {
-    final day = DateTime(2026, 7, 14);
-
-    final entryId = await repo.addEntry(
-      foodNameSnapshot: 'Eggs',
-      grams: 100,
-      kcalPer100g: 150,
-      proteinPer100g: 12,
-      fatPer100g: 10,
-      carbsPer100g: 1,
-      entryDate: day,
-      loggedAt: DateTime(2026, 7, 14, 8, 0),
-      gapWindow: gapWindow,
-    );
+  test('moveEntryToMeal marks the target meal manual and deletes an emptied source meal', () async {
+    final entryId = await addEggs(DateTime(2026, 7, 14, 8, 0));
     final manualMealId = await repo.createManualMeal(day, 5);
+    final sourceMealId =
+        (await repo.getEntriesForDate(day)).single.mealId;
 
-    await repo.reassignEntryToMeal(entryId, manualMealId);
+    await repo.moveEntryToMeal(entryId, manualMealId);
 
     final entries = await repo.getEntriesForDate(day);
     expect(entries.single.mealId, manualMealId);
 
     final meals = await repo.getMealsForDate(day);
+    expect(meals.any((m) => m.id == sourceMealId), false); // emptied source removed
     final manualMeal = meals.firstWhere((m) => m.id == manualMealId);
     expect(manualMeal.isManual, true);
   });
 
-  test('updateEntryLoggedAt regroups the day but leaves manual meals untouched', () async {
-    final day = DateTime(2026, 7, 14);
-
-    final entryId = await repo.addEntry(
-      foodNameSnapshot: 'Eggs',
-      grams: 100,
-      kcalPer100g: 150,
-      proteinPer100g: 12,
-      fatPer100g: 10,
-      carbsPer100g: 1,
-      entryDate: day,
-      loggedAt: DateTime(2026, 7, 14, 8, 0),
-      gapWindow: gapWindow,
-    );
+  test('updateEntryOccurredAt regroups the day but leaves manual meals untouched', () async {
+    final entryId = await addEggs(DateTime(2026, 7, 14, 8, 0));
     final manualMealId = await repo.createManualMeal(day, 99);
-    await repo.reassignEntryToMeal(
-      (await repo.addEntry(
-        foodNameSnapshot: 'Snack',
-        grams: 30,
-        kcalPer100g: 500,
-        proteinPer100g: 5,
-        fatPer100g: 30,
-        carbsPer100g: 50,
-        entryDate: day,
-        loggedAt: DateTime(2026, 7, 14, 16, 0),
-        gapWindow: gapWindow,
-      )),
-      manualMealId,
-    );
+    final snackId = await addEggs(DateTime(2026, 7, 14, 16, 0));
+    await repo.moveEntryToMeal(snackId, manualMealId);
 
     // Move the first entry far past the gap from its original meal.
-    await repo.updateEntryLoggedAt(
+    await repo.updateEntryOccurredAt(
       entryId,
       DateTime(2026, 7, 14, 20, 0),
       gapWindow,
@@ -1267,6 +1226,67 @@ void main() {
     final entries = await repo.getEntriesForDate(day);
     final movedEntry = entries.firstWhere((e) => e.id == entryId);
     expect(movedEntry.mealId, isNot(manualMealId));
+  });
+
+  test('deleteEntry removes the row and cleans up an emptied auto meal', () async {
+    final entryId = await addEggs(DateTime(2026, 7, 14, 8, 0));
+    final mealId = (await repo.getEntriesForDate(day)).single.mealId;
+
+    await repo.deleteEntry(entryId, gapWindow);
+
+    expect(await repo.getEntriesForDate(day), isEmpty);
+    final meals = await repo.getMealsForDate(day);
+    expect(meals.any((m) => m.id == mealId), false);
+  });
+
+  test('deleting the last entry in a manual meal removes that manual meal too', () async {
+    final entryId = await addEggs(DateTime(2026, 7, 14, 8, 0));
+    final manualMealId = await repo.createManualMeal(day, 7);
+    await repo.moveEntryToMeal(entryId, manualMealId);
+
+    await repo.deleteEntry(entryId, gapWindow);
+
+    final meals = await repo.getMealsForDate(day);
+    expect(meals.any((m) => m.id == manualMealId), false);
+  });
+
+  test('splitEntriesIntoNewMeal creates a manual meal and marks the source meal manual too', () async {
+    await addEggs(DateTime(2026, 7, 14, 8, 0));
+    final secondId = await addEggs(DateTime(2026, 7, 14, 8, 20));
+    final sourceMealId = (await repo.getEntriesForDate(day)).first.mealId;
+
+    final newMealId = await repo.splitEntriesIntoNewMeal(
+      entryIds: [secondId],
+      date: day,
+      newMealNumber: 50,
+    );
+
+    final meals = await repo.getMealsForDate(day);
+    final newMeal = meals.firstWhere((m) => m.id == newMealId);
+    expect(newMeal.isManual, true);
+    final sourceMeal = meals.firstWhere((m) => m.id == sourceMealId);
+    expect(sourceMeal.isManual, true); // touched by the split, so it's locked too
+
+    final entries = await repo.getEntriesForDate(day);
+    expect(entries.firstWhere((e) => e.id == secondId).mealId, newMealId);
+  });
+
+  test('mergeMeals combines two meals into one manual meal and deletes the other', () async {
+    final firstId = await addEggs(DateTime(2026, 7, 14, 8, 0));
+    final secondId = await addEggs(DateTime(2026, 7, 14, 13, 0));
+    final entries = await repo.getEntriesForDate(day);
+    final firstMealId = entries.firstWhere((e) => e.id == firstId).mealId;
+    final secondMealId = entries.firstWhere((e) => e.id == secondId).mealId;
+
+    await repo.mergeMeals(keepMealId: firstMealId, otherMealId: secondMealId);
+
+    final meals = await repo.getMealsForDate(day);
+    expect(meals.any((m) => m.id == secondMealId), false);
+    final keptMeal = meals.firstWhere((m) => m.id == firstMealId);
+    expect(keptMeal.isManual, true);
+
+    final updatedEntries = await repo.getEntriesForDate(day);
+    expect(updatedEntries.every((e) => e.mealId == firstMealId), true);
   });
 }
 ```
@@ -1304,60 +1324,45 @@ class DiaryRepository {
     required double fatPer100g,
     required double carbsPer100g,
     required DateTime entryDate,
-    required DateTime loggedAt,
+    required DateTime occurredAt,
     required Duration gapWindow,
   }) async {
+    assert(grams > 0, 'grams must be positive');
     final dayStart = _dayStart(entryDate);
+    final ratio = grams / 100.0;
+
     return db.transaction(() async {
-      final existingMeals = await (db.select(db.meals)
-            ..where((m) => m.dayDate.equals(dayStart)))
-          .get();
+      // Insert into a throwaway placeholder meal — regroupDay always
+      // rebuilds the auto partition from scratch and will assign this
+      // entry (and delete the placeholder, since it'll be empty) to the
+      // correct cluster in one consistent pass.
+      final placeholderMealId = await db.into(db.meals).insert(
+            MealsCompanion.insert(dayDate: dayStart, mealNumber: 0),
+          );
 
-      final summaries = <MealSummary>[];
-      for (final meal in existingMeals) {
-        final lastEntry = await (db.select(db.diaryEntries)
-              ..where((e) => e.mealId.equals(meal.id))
-              ..orderBy([(e) => OrderingTerm.desc(e.loggedAt)])
-              ..limit(1))
-            .getSingleOrNull();
-        summaries.add(MealSummary(
-          id: meal.id,
-          mealNumber: meal.mealNumber,
-          isManual: meal.isManual,
-          lastEntryLoggedAt: lastEntry?.loggedAt,
-        ));
-      }
+      final entryId = await db.into(db.diaryEntries).insert(
+            DiaryEntriesCompanion.insert(
+              mealId: placeholderMealId,
+              privateFoodId: Value(privateFoodId),
+              foodNameSnapshot: foodNameSnapshot,
+              grams: grams,
+              kcalSnapshot: kcalPer100g * ratio,
+              proteinSnapshot: proteinPer100g * ratio,
+              fatSnapshot: fatPer100g * ratio,
+              carbsSnapshot: carbsPer100g * ratio,
+              occurredAt: occurredAt,
+              createdAt: DateTime.now(),
+              entryDate: dayStart,
+            ),
+          );
 
-      final assignment = assignMeal(
-        newLoggedAt: loggedAt,
-        existingMealsForDay: summaries,
-        gapWindow: gapWindow,
-      );
-
-      final mealId = assignment.createNew
-          ? await db.into(db.meals).insert(MealsCompanion.insert(
-                dayDate: dayStart,
-                mealNumber: assignment.mealNumber,
-              ))
-          : assignment.mealId!;
-
-      final ratio = grams / 100.0;
-      return db.into(db.diaryEntries).insert(DiaryEntriesCompanion.insert(
-            mealId: mealId,
-            privateFoodId: Value(privateFoodId),
-            foodNameSnapshot: foodNameSnapshot,
-            grams: grams,
-            kcalSnapshot: kcalPer100g * ratio,
-            proteinSnapshot: proteinPer100g * ratio,
-            fatSnapshot: fatPer100g * ratio,
-            carbsSnapshot: carbsPer100g * ratio,
-            loggedAt: loggedAt,
-            entryDate: dayStart,
-          ));
+      await regroupDay(dayStart, gapWindow);
+      return entryId;
     });
   }
 
   Future<void> updateEntryGrams(int entryId, double newGrams) async {
+    assert(newGrams > 0, 'grams must be positive');
     final entry =
         await (db.select(db.diaryEntries)..where((e) => e.id.equals(entryId)))
             .getSingle();
@@ -1380,12 +1385,13 @@ class DiaryRepository {
       proteinSnapshot: Value(rescaled.protein),
       fatSnapshot: Value(rescaled.fat),
       carbsSnapshot: Value(rescaled.carbs),
+      updatedAt: Value(DateTime.now()),
     ));
   }
 
-  Future<void> updateEntryLoggedAt(
+  Future<void> updateEntryOccurredAt(
     int entryId,
-    DateTime newLoggedAt,
+    DateTime newOccurredAt,
     Duration gapWindow,
   ) async {
     final entry =
@@ -1393,15 +1399,33 @@ class DiaryRepository {
             .getSingle();
 
     await (db.update(db.diaryEntries)..where((e) => e.id.equals(entryId)))
-        .write(DiaryEntriesCompanion(loggedAt: Value(newLoggedAt)));
+        .write(DiaryEntriesCompanion(
+      occurredAt: Value(newOccurredAt),
+      updatedAt: Value(DateTime.now()),
+    ));
 
     await regroupDay(entry.entryDate, gapWindow);
   }
 
-  /// Re-clusters every entry that belongs to a non-manual meal for [date],
-  /// using the same rolling-gap algorithm as [addEntry]. Entries belonging
-  /// to a manual meal are left untouched. Non-manual meal numbers are not
-  /// stable across regroups — only the manual flag is a sticky guarantee.
+  Future<void> deleteEntry(int entryId, Duration gapWindow) async {
+    final entry =
+        await (db.select(db.diaryEntries)..where((e) => e.id.equals(entryId)))
+            .getSingle();
+
+    await db.transaction(() async {
+      await (db.delete(db.diaryEntries)..where((e) => e.id.equals(entryId)))
+          .go();
+      await regroupDay(entry.entryDate, gapWindow);
+    });
+  }
+
+  /// Full deterministic regroup of the auto partition for [date], per the
+  /// spec's "Meal grouping algorithm": every auto (non-manual) meal for the
+  /// day is rebuilt from scratch via [clusterAutoEntries] on every call, so
+  /// there is never an incremental "compare to the last meal" step. Manual
+  /// meals and their entries are never touched. Any meal — manual or auto —
+  /// left with zero entries afterward is deleted (manual meals can end up
+  /// empty via [deleteEntry] or [moveEntryToMeal]).
   Future<void> regroupDay(DateTime date, Duration gapWindow) async {
     final dayStart = _dayStart(date);
     await db.transaction(() async {
@@ -1413,54 +1437,123 @@ class DiaryRepository {
       final maxManualNumber = meals
           .where((m) => m.isManual)
           .fold<int>(0, (max, m) => m.mealNumber > max ? m.mealNumber : max);
-      final oldNonManualMealIds =
-          meals.where((m) => !m.isManual).map((m) => m.id).toList();
 
       final entries = await (db.select(db.diaryEntries)
-            ..where((e) => e.entryDate.equals(dayStart))
-            ..orderBy([(e) => OrderingTerm.asc(e.loggedAt)]))
+            ..where((e) => e.entryDate.equals(dayStart)))
           .get();
-      final nonManualEntries =
-          entries.where((e) => !manualMealIds.contains(e.mealId)).toList();
+      final autoEntries = entries
+          .where((e) => !manualMealIds.contains(e.mealId))
+          .map((e) => AutoEntry(id: e.id, occurredAt: e.occurredAt))
+          .toList();
 
-      int? currentMealId;
-      DateTime? lastLoggedAt;
-      var nextMealNumber = maxManualNumber + 1;
+      final clusters = clusterAutoEntries(
+        autoEntries: autoEntries,
+        gapWindow: gapWindow,
+        startingMealNumber: maxManualNumber + 1,
+      );
 
-      for (final entry in nonManualEntries) {
-        if (currentMealId == null ||
-            entry.loggedAt.difference(lastLoggedAt!) > gapWindow) {
-          currentMealId = await db.into(db.meals).insert(MealsCompanion.insert(
+      for (final cluster in clusters) {
+        final newMealId = await db.into(db.meals).insert(
+              MealsCompanion.insert(
                 dayDate: dayStart,
-                mealNumber: nextMealNumber,
-              ));
-          nextMealNumber++;
+                mealNumber: cluster.mealNumber,
+              ),
+            );
+        for (final entryId in cluster.entryIds) {
+          await (db.update(db.diaryEntries)..where((e) => e.id.equals(entryId)))
+              .write(DiaryEntriesCompanion(mealId: Value(newMealId)));
         }
-        await (db.update(db.diaryEntries)..where((e) => e.id.equals(entry.id)))
-            .write(DiaryEntriesCompanion(mealId: Value(currentMealId!)));
-        lastLoggedAt = entry.loggedAt;
       }
 
-      for (final oldId in oldNonManualMealIds) {
+      // Clean up every meal (manual or auto) now left with zero entries.
+      for (final meal in meals) {
         final remaining = await (db.select(db.diaryEntries)
-              ..where((e) => e.mealId.equals(oldId)))
+              ..where((e) => e.mealId.equals(meal.id)))
             .get();
         if (remaining.isEmpty) {
-          await (db.delete(db.meals)..where((m) => m.id.equals(oldId))).go();
+          await (db.delete(db.meals)..where((m) => m.id.equals(meal.id))).go();
         }
       }
     });
   }
 
-  Future<void> markMealManual(int mealId, {bool isManual = true}) {
-    return (db.update(db.meals)..where((m) => m.id.equals(mealId)))
-        .write(MealsCompanion(isManual: Value(isManual)));
+  Future<void> moveEntryToMeal(int entryId, int targetMealId) async {
+    await db.transaction(() async {
+      final entry =
+          await (db.select(db.diaryEntries)..where((e) => e.id.equals(entryId)))
+              .getSingle();
+      final sourceMealId = entry.mealId;
+
+      await (db.update(db.meals)..where((m) => m.id.equals(targetMealId)))
+          .write(const MealsCompanion(isManual: Value(true)));
+      await (db.update(db.diaryEntries)..where((e) => e.id.equals(entryId)))
+          .write(DiaryEntriesCompanion(
+        mealId: Value(targetMealId),
+        updatedAt: Value(DateTime.now()),
+      ));
+
+      if (sourceMealId != targetMealId) {
+        await _deleteMealIfEmpty(sourceMealId);
+      }
+    });
   }
 
-  Future<void> reassignEntryToMeal(int entryId, int targetMealId) async {
-    await markMealManual(targetMealId);
-    await (db.update(db.diaryEntries)..where((e) => e.id.equals(entryId)))
-        .write(DiaryEntriesCompanion(mealId: Value(targetMealId)));
+  Future<int> splitEntriesIntoNewMeal({
+    required List<int> entryIds,
+    required DateTime date,
+    required int newMealNumber,
+  }) async {
+    return db.transaction(() async {
+      final newMealId = await createManualMeal(date, newMealNumber);
+      final sourceMealIds = <int>{};
+
+      for (final entryId in entryIds) {
+        final entry = await (db.select(db.diaryEntries)
+              ..where((e) => e.id.equals(entryId)))
+            .getSingle();
+        sourceMealIds.add(entry.mealId);
+        await (db.update(db.diaryEntries)..where((e) => e.id.equals(entryId)))
+            .write(DiaryEntriesCompanion(
+          mealId: Value(newMealId),
+          updatedAt: Value(DateTime.now()),
+        ));
+      }
+
+      for (final sourceMealId in sourceMealIds) {
+        // A meal a split was carved out of is considered manually curated
+        // even for the entries left behind, so auto-regroup never re-merges them.
+        await (db.update(db.meals)..where((m) => m.id.equals(sourceMealId)))
+            .write(const MealsCompanion(isManual: Value(true)));
+        await _deleteMealIfEmpty(sourceMealId);
+      }
+
+      return newMealId;
+    });
+  }
+
+  Future<void> mergeMeals({
+    required int keepMealId,
+    required int otherMealId,
+  }) async {
+    await db.transaction(() async {
+      await (db.update(db.diaryEntries)..where((e) => e.mealId.equals(otherMealId)))
+          .write(DiaryEntriesCompanion(
+        mealId: Value(keepMealId),
+        updatedAt: Value(DateTime.now()),
+      ));
+      await (db.update(db.meals)..where((m) => m.id.equals(keepMealId)))
+          .write(const MealsCompanion(isManual: Value(true)));
+      await (db.delete(db.meals)..where((m) => m.id.equals(otherMealId))).go();
+    });
+  }
+
+  Future<void> _deleteMealIfEmpty(int mealId) async {
+    final remaining = await (db.select(db.diaryEntries)
+          ..where((e) => e.mealId.equals(mealId)))
+        .get();
+    if (remaining.isEmpty) {
+      await (db.delete(db.meals)..where((m) => m.id.equals(mealId))).go();
+    }
   }
 
   Future<int> createManualMeal(DateTime date, int mealNumber) {
@@ -1475,7 +1568,7 @@ class DiaryRepository {
     final dayStart = _dayStart(date);
     return (db.select(db.diaryEntries)
           ..where((e) => e.entryDate.equals(dayStart))
-          ..orderBy([(e) => OrderingTerm.asc(e.loggedAt)]))
+          ..orderBy([(e) => OrderingTerm.asc(e.occurredAt)]))
         .get();
   }
 
@@ -1495,18 +1588,20 @@ class DiaryRepository {
 flutter test test/data/diary_repository_test.dart
 ```
 
-Expected: PASS, all 6 tests green.
+Expected: PASS, all 11 tests green.
 
 - [ ] **Step 5: Commit**
 
 ```bash
 git add lib/data/diary_repository.dart test/data/diary_repository_test.dart
-git commit -m "feat: add DiaryRepository with gap-based grouping and regrouping"
+git commit -m "feat: add DiaryRepository with deterministic regroup and manual move/split/merge"
 ```
 
 ---
 
 ### Task 9: GoalsRepository
+
+> **Confirmed against spec review**: the review asked whether switching from calculated to manual mode retains the profile inputs as a restorable baseline. Decision (see spec "Goals and BMR/TDEE calculation" > mode transition): no — `setManualGoals` deletes and replaces the single `Goals` row without carrying over `age`/`weightKg`/etc., matching the implementation below unchanged. Also confirmed: `Goals` has no per-day history (spec "Goals history") — no code change needed for either point, this task's implementation already matched the resolved decision.
 
 **Files:**
 - Create: `lib/data/goals_repository.dart`
@@ -1687,6 +1782,7 @@ git commit -m "feat: add GoalsRepository for manual and calculated goals"
 Create `test/data/open_food_facts_source_test.dart`:
 
 ```dart
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
@@ -1787,6 +1883,19 @@ void main() {
 
     expect(results, isEmpty);
   });
+
+  test('a network timeout degrades to an empty result instead of crashing', () async {
+    final client = MockClient((request) async {
+      throw TimeoutException('simulated network timeout');
+    });
+    final source = OpenFoodFactsSource(client: client);
+
+    final results = await source.searchByName('anything');
+    final barcodeResult = await source.lookupBarcode('123');
+
+    expect(results, isEmpty);
+    expect(barcodeResult, isNull);
+  });
 }
 ```
 
@@ -1882,7 +1991,7 @@ class OpenFoodFactsSource implements FoodSource {
 flutter test test/data/open_food_facts_source_test.dart
 ```
 
-Expected: PASS, all 5 tests green.
+Expected: PASS, all 6 tests green.
 
 - [ ] **Step 5: Commit**
 
@@ -2195,7 +2304,8 @@ void main() {
             proteinSnapshot: 6,
             fatSnapshot: 0.6,
             carbsSnapshot: 56,
-            loggedAt: DateTime(2026, 7, 14, 12, 0),
+            occurredAt: DateTime(2026, 7, 14, 12, 0),
+            createdAt: DateTime(2026, 7, 14, 12, 0),
             entryDate: DateTime(2026, 7, 14),
           ),
         );
@@ -2269,6 +2379,102 @@ void main() {
 
     final foods = await db.select(db.privateFoods).get();
     expect(foods, isEmpty);
+
+    await db.close();
+  });
+
+  test('importFromJson rejects a missing formatVersion the same way as an unknown one', () async {
+    final db = AppDatabase.forTesting(NativeDatabase.memory());
+    final service = ExportImportService(db);
+
+    expect(
+      () => service.importFromJson({'privateFoods': [], 'meals': [], 'diaryEntries': [], 'goals': []}),
+      throwsFormatException,
+    );
+
+    await db.close();
+  });
+
+  test('a structurally malformed field throws instead of silently corrupting data', () async {
+    // The delete-then-insert sequence runs inside one Drift transaction, so
+    // even though the malformed cast fails *after* the deletes have already
+    // executed within that transaction, Drift rolls the whole thing back —
+    // existing data survives untouched. See spec "Export/Import" > Atomicity.
+    final db = AppDatabase.forTesting(NativeDatabase.memory());
+    final service = ExportImportService(db);
+
+    await db.into(db.privateFoods).insert(PrivateFoodsCompanion.insert(
+          name: 'Untouched Food',
+          kcalPer100g: 1,
+          proteinPer100g: 1,
+          fatPer100g: 1,
+          carbsPer100g: 1,
+          source: FoodSourceType.manual,
+          createdAt: DateTime(2026, 1, 1),
+        ));
+
+    await expectLater(
+      service.importFromJson({
+        'formatVersion': ExportImportService.formatVersion,
+        'privateFoods': 'not-a-list', // malformed: should be a List
+        'meals': [],
+        'diaryEntries': [],
+        'goals': [],
+      }),
+      throwsA(isA<TypeError>()),
+    );
+
+    final foods = await db.select(db.privateFoods).get();
+    expect(foods, hasLength(1));
+    expect(foods.single.name, 'Untouched Food');
+
+    await db.close();
+  });
+
+  test('a referentially-invalid row is rejected and leaves existing data untouched', () async {
+    final db = AppDatabase.forTesting(NativeDatabase.memory());
+    final service = ExportImportService(db);
+
+    await db.into(db.privateFoods).insert(PrivateFoodsCompanion.insert(
+          name: 'Untouched Food',
+          kcalPer100g: 1,
+          proteinPer100g: 1,
+          fatPer100g: 1,
+          carbsPer100g: 1,
+          source: FoodSourceType.manual,
+          createdAt: DateTime(2026, 1, 1),
+        ));
+
+    await expectLater(
+      service.importFromJson({
+        'formatVersion': ExportImportService.formatVersion,
+        'privateFoods': [],
+        'meals': [], // note: no meal with id 999 defined below
+        'diaryEntries': [
+          {
+            'id': 1,
+            'mealId': 999,
+            'privateFoodId': null,
+            'foodNameSnapshot': 'Ghost Entry',
+            'grams': 100.0,
+            'kcalSnapshot': 1.0,
+            'proteinSnapshot': 1.0,
+            'fatSnapshot': 1.0,
+            'carbsSnapshot': 1.0,
+            'occurredAt': DateTime(2026, 7, 14).toIso8601String(),
+            'createdAt': DateTime(2026, 7, 14).toIso8601String(),
+            'updatedAt': null,
+            'entryDate': DateTime(2026, 7, 14).toIso8601String(),
+          }
+        ],
+        'goals': [],
+      }),
+      throwsA(isA<Exception>()), // SQLite FK violation, since PRAGMA foreign_keys = ON (Task 2)
+    );
+
+    final foods = await db.select(db.privateFoods).get();
+    expect(foods, hasLength(1));
+    expect(foods.single.name, 'Untouched Food');
 
     await db.close();
   });
@@ -2351,7 +2557,7 @@ class ExportImportService {
 flutter test test/data/export_import_service_test.dart
 ```
 
-Expected: PASS, all 3 tests green.
+Expected: PASS, all 6 tests green.
 
 - [ ] **Step 5: Commit**
 
@@ -2569,7 +2775,7 @@ void main() {
       fatPer100g: 5,
       carbsPer100g: 10,
       entryDate: DateTime(today.year, today.month, today.day),
-      loggedAt: today,
+      occurredAt: today,
       gapWindow: const Duration(minutes: 90),
     );
 
@@ -2663,12 +2869,29 @@ class DayScreen extends ConsumerWidget {
 
           final totals = _sumTotals(entries);
 
+          // Manual meal numbers aren't chronologically meaningful (a manual
+          // meal created late in the day can carry a low or high number
+          // independent of when its entries actually occurred) — display
+          // order is by each meal's earliest entry time, not meal_number,
+          // per spec "Meal grouping algorithm" > Display ordering.
+          final sortedMeals = [...meals]..sort((a, b) {
+              final aTime = entries
+                  .where((e) => e.mealId == a.id)
+                  .map((e) => e.occurredAt)
+                  .reduce((x, y) => x.isBefore(y) ? x : y);
+              final bTime = entries
+                  .where((e) => e.mealId == b.id)
+                  .map((e) => e.occurredAt)
+                  .reduce((x, y) => x.isBefore(y) ? x : y);
+              return aTime.compareTo(bTime);
+            });
+
           return Column(
             children: [
               if (goals != null) _GoalProgress(totals: totals, goals: goals),
               Expanded(
                 child: ListView(
-                  children: meals
+                  children: sortedMeals
                       .map((meal) => _MealSection(
                             meal: meal,
                             entries: entries.where((e) => e.mealId == meal.id).toList(),
@@ -3039,7 +3262,7 @@ Future<void> showEditableFoodDialog({
         fatPer100g: fatPer100g,
         carbsPer100g: carbsPer100g,
         entryDate: selectedDay,
-        loggedAt: DateTime.now(),
+        occurredAt: DateTime.now(),
         gapWindow: settings.gapWindow,
       );
 }
@@ -3521,8 +3744,10 @@ git commit -m "feat: wire app shell navigation across Day, Add, Goals, Settings"
 
 ## Self-Review Notes
 
-**Spec coverage:** every spec section maps to at least one task — architecture/layering (Tasks 1, 2, 14), data model (Task 2), nutrition snapshotting (Tasks 8, 9 tests), meal grouping algorithm incl. manual-lock (Tasks 3, 8), entry editing/rescale (Tasks 5, 8), food sources incl. FatSecret exclusion (Tasks 6, 7, 10, 11), goals/BMR (Tasks 4, 9, 17), export/import full-replace (Task 13), UI day view + history navigation (Task 15), gap-window setting (Tasks 12, 18), testing strategy (unit/repository/widget/mocked-HTTP tests present in every relevant task).
+**Spec coverage:** every spec section maps to at least one task — architecture/layering (Tasks 1, 2, 14), data model incl. `occurred_at`/`created_at`/`updated_at` and `ON DELETE SET NULL` (Task 2), nutrition snapshotting (Tasks 8, 9 tests), the deterministic meal grouping algorithm and manual-lock invariants incl. move/split/merge (Tasks 3, 8), entry editing/rescale (Tasks 5, 8), food sources incl. FatSecret exclusion and the `FoodResult` contract (Tasks 6, 7, 10, 11), goals/BMR with locked constants and the no-history/discard-on-override decisions (Tasks 4, 9, 17), export/import full-replace with atomicity and bad-data tests (Task 13), UI day view with chronological meal display ordering (Task 15), gap-window setting (Tasks 12, 18), testing strategy (unit/repository/widget/mocked-HTTP tests present in every relevant task, extended per the spec review's "Testing" additions).
 
 **Placeholder scan:** no TBD/TODO markers; every step has runnable commands and complete code.
 
-**Type consistency:** `FoodResult`, `FoodSource`, `MealSummary`, `MealGroupingResult`, `NutrientSnapshot`, `BmrInput`, `MacroGoals` are defined once (Tasks 3, 4, 5, 6) and reused with identical field names throughout Tasks 7–18.
+**Type consistency:** `FoodResult`, `FoodSource`, `AutoEntry`, `MealCluster`, `NutrientSnapshot`, `BmrInput`, `MacroGoals` are defined once (Tasks 3, 4, 5, 6) and reused with identical field names throughout Tasks 7–18. (`MealSummary`/`MealGroupingResult` from the pre-review draft of Task 3 no longer exist — superseded by `AutoEntry`/`MealCluster`.)
+
+**Post-review revision scan:** no remaining references to the old `logged_at` field name, `assignMeal`, `reassignEntryToMeal`, or `updateEntryLoggedAt` — all call sites (Tasks 8, 13, 15, 16) were updated to `occurred_at`/`clusterAutoEntries`/`moveEntryToMeal`/`updateEntryOccurredAt`.
