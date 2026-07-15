@@ -64,13 +64,16 @@ class _SearchTab extends ConsumerStatefulWidget {
 class _SearchTabState extends ConsumerState<_SearchTab> {
   final _controller = TextEditingController();
   List<FoodResult> _results = [];
+  int _searchGeneration = 0;
 
   Future<void> _search(String query) async {
+    final generation = ++_searchGeneration;
     if (query.trim().isEmpty) {
       setState(() => _results = []);
       return;
     }
     final results = await ref.read(foodLookupServiceProvider).search(query);
+    if (generation != _searchGeneration) return; // a newer search superseded this one
     setState(() => _results = results);
   }
 
@@ -146,17 +149,24 @@ class _ManualTab extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     return Center(
       child: ElevatedButton(
-        onPressed: () => showEditableFoodDialog(
-          context: context,
-          ref: ref,
-          initial: const FoodResult(
-            name: '',
-            kcalPer100g: 0,
-            proteinPer100g: 0,
-            fatPer100g: 0,
-            carbsPer100g: 0,
-          ),
-        ),
+        onPressed: () async {
+          final saved = await showEditableFoodDialog(
+            context: context,
+            ref: ref,
+            initial: const FoodResult(
+              name: '',
+              kcalPer100g: 0,
+              proteinPer100g: 0,
+              fatPer100g: 0,
+              carbsPer100g: 0,
+            ),
+          );
+          if (saved && context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Food saved')),
+            );
+          }
+        },
         child: const Text('Add food manually'),
       ),
     );
@@ -166,7 +176,7 @@ class _ManualTab extends ConsumerWidget {
 /// Shows an editable card for a [FoodResult] (from barcode lookup, external
 /// search, or a blank manual entry), lets the user adjust fields and grams,
 /// saves it to the private food database, and logs a diary entry for it.
-Future<void> showEditableFoodDialog({
+Future<bool> showEditableFoodDialog({
   required BuildContext context,
   required WidgetRef ref,
   required FoodResult initial,
@@ -203,7 +213,7 @@ Future<void> showEditableFoodDialog({
     ),
   );
 
-  if (confirmed != true) return;
+  if (confirmed != true) return false;
 
   final kcalPer100g = double.tryParse(kcalController.text) ?? 0;
   final proteinPer100g = double.tryParse(proteinController.text) ?? 0;
@@ -212,20 +222,33 @@ Future<void> showEditableFoodDialog({
   final grams = double.tryParse(gramsController.text) ?? 100;
 
   final foodRepo = ref.read(foodRepositoryProvider);
-  final source = initial.existingPrivateFoodId != null
-      ? null // already private, no need to re-insert
-      : (barcode != null ? FoodSourceType.barcode : (initial.name.isEmpty ? FoodSourceType.manual : FoodSourceType.copiedExternal));
 
-  final privateFoodId = initial.existingPrivateFoodId ??
-      await foodRepo.insertFood(
-        name: nameController.text,
-        barcode: barcode,
-        kcalPer100g: kcalPer100g,
-        proteinPer100g: proteinPer100g,
-        fatPer100g: fatPer100g,
-        carbsPer100g: carbsPer100g,
-        source: source!,
-      );
+  final int privateFoodId;
+  if (initial.existingPrivateFoodId != null) {
+    privateFoodId = initial.existingPrivateFoodId!;
+    await foodRepo.updateFood(
+      privateFoodId,
+      name: nameController.text,
+      barcode: barcode,
+      kcalPer100g: kcalPer100g,
+      proteinPer100g: proteinPer100g,
+      fatPer100g: fatPer100g,
+      carbsPer100g: carbsPer100g,
+    );
+  } else {
+    final source = barcode != null
+        ? FoodSourceType.barcode
+        : (initial.name.isEmpty ? FoodSourceType.manual : FoodSourceType.copiedExternal);
+    privateFoodId = await foodRepo.insertFood(
+      name: nameController.text,
+      barcode: barcode,
+      kcalPer100g: kcalPer100g,
+      proteinPer100g: proteinPer100g,
+      fatPer100g: fatPer100g,
+      carbsPer100g: carbsPer100g,
+      source: source,
+    );
+  }
 
   final settings = ref.read(settingsServiceProvider);
   final selectedDay = ref.read(selectedDayProvider);
@@ -241,4 +264,5 @@ Future<void> showEditableFoodDialog({
         occurredAt: DateTime.now(),
         gapWindow: settings.gapWindow,
       );
+  return true;
 }
