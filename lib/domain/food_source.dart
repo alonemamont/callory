@@ -8,6 +8,7 @@ class FoodResult {
   /// Non-null when this result already exists in the user's private food
   /// database (so the UI can skip the "copy to private db" step).
   final int? existingPrivateFoodId;
+  final bool isFavorite;
 
   const FoodResult({
     required this.name,
@@ -17,6 +18,7 @@ class FoodResult {
     required this.fatPer100g,
     required this.carbsPer100g,
     this.existingPrivateFoodId,
+    this.isFavorite = false,
   });
 }
 
