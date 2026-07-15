@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:callory/db/database.dart';
 import 'package:callory/providers/providers.dart';
 
+final _dayRefreshProvider = StateProvider<int>((ref) => 0);
+
 class DayScreen extends ConsumerWidget {
   const DayScreen({super.key});
 
@@ -11,6 +13,7 @@ class DayScreen extends ConsumerWidget {
     final selectedDay = ref.watch(selectedDayProvider);
     final diaryRepo = ref.watch(diaryRepositoryProvider);
     final goalsRepo = ref.watch(goalsRepositoryProvider);
+    ref.watch(_dayRefreshProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -128,13 +131,13 @@ class _ProgressRow extends StatelessWidget {
   }
 }
 
-class _MealSection extends StatelessWidget {
+class _MealSection extends ConsumerWidget {
   final Meal meal;
   final List<DiaryEntry> entries;
   const _MealSection({required this.meal, required this.entries});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -147,8 +150,43 @@ class _MealSection extends StatelessWidget {
             title: Text(entry.foodNameSnapshot),
             subtitle: Text('${entry.grams.round()} g'),
             trailing: Text('${entry.kcalSnapshot.round()} kcal'),
+            onTap: () => _showEditGramsDialog(context, ref, entry),
           ),
       ],
     );
+  }
+
+  Future<void> _showEditGramsDialog(
+    BuildContext context,
+    WidgetRef ref,
+    DiaryEntry entry,
+  ) async {
+    final gramsController = TextEditingController(text: entry.grams.round().toString());
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(entry.foodNameSnapshot),
+        content: TextField(
+          key: const Key('editEntryGramsField'),
+          controller: gramsController,
+          decoration: const InputDecoration(labelText: 'Grams eaten'),
+          keyboardType: TextInputType.number,
+          autofocus: true,
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Save')),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    final newGrams = double.tryParse(gramsController.text);
+    if (newGrams == null || newGrams <= 0) return;
+
+    await ref.read(diaryRepositoryProvider).updateEntryGrams(entry.id, newGrams);
+    ref.read(_dayRefreshProvider.notifier).state++;
   }
 }

@@ -61,4 +61,46 @@ void main() {
 
     await db.close();
   });
+
+  testWidgets('tapping a logged entry opens an edit dialog that updates grams', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+    final db = AppDatabase.forTesting(NativeDatabase.memory());
+    final diaryRepo = DiaryRepository(db);
+    final today = DateTime.now();
+    await diaryRepo.addEntry(
+      foodNameSnapshot: 'Test Meal Item',
+      grams: 100,
+      kcalPer100g: 150,
+      proteinPer100g: 10,
+      fatPer100g: 5,
+      carbsPer100g: 10,
+      entryDate: DateTime(today.year, today.month, today.day),
+      occurredAt: today,
+      gapWindow: const Duration(minutes: 90),
+    );
+
+    await tester.pumpWidget(ProviderScope(
+      overrides: [
+        databaseProvider.overrideWithValue(db),
+        settingsServiceProvider.overrideWithValue(SettingsService(prefs)),
+      ],
+      child: const MaterialApp(home: DayScreen()),
+    ));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.textContaining('Test Meal Item'));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('editEntryGramsField')), findsOneWidget);
+
+    await tester.enterText(find.byKey(const Key('editEntryGramsField')), '200');
+    await tester.tap(find.text('Save'));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('200 g'), findsOneWidget);
+    expect(find.textContaining('300 kcal'), findsOneWidget);
+
+    await db.close();
+  });
 }
