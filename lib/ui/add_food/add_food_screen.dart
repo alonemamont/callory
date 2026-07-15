@@ -259,7 +259,12 @@ class _SearchTabState extends ConsumerState<_SearchTab> {
   }
 
   Future<void> _openGramsDialog(BuildContext context, FoodResult result) async {
-    await showEditableFoodDialog(context: context, ref: ref, initial: result);
+    await showEditableFoodDialog(
+      context: context,
+      ref: ref,
+      initial: result,
+      barcode: result.barcode,
+    );
   }
 }
 
@@ -391,7 +396,11 @@ Future<void> showEditableFoodDialog({
   final grams = double.tryParse(gramsController.text) ?? 100;
 
   final foodRepo = ref.read(foodRepositoryProvider);
-  final privateFoodId = initial.existingPrivateFoodId;
+  final existingByBarcode = barcode == null
+      ? null
+      : await foodRepo.findByBarcode(barcode);
+  final privateFoodId =
+      initial.existingPrivateFoodId ?? existingByBarcode?.existingPrivateFoodId;
   if (privateFoodId != null) {
     await foodRepo.updateFood(
       privateFoodId,

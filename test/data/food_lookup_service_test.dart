@@ -73,6 +73,39 @@ void main() {
     expect(results.last.isFavorite, false);
   });
 
+  test('search reconciles external barcode matches with local favorite state', () async {
+    final private = _FakeSource(searchResults: [
+      const FoodResult(
+        name: 'Local Match',
+        barcode: '222',
+        kcalPer100g: 205,
+        proteinPer100g: 22,
+        fatPer100g: 9,
+        carbsPer100g: 12,
+        existingPrivateFoodId: 7,
+        isFavorite: true,
+      ),
+    ]);
+    final external = _FakeSource(searchResults: [
+      const FoodResult(
+        name: 'External Match',
+        barcode: '222',
+        kcalPer100g: 210,
+        proteinPer100g: 21,
+        fatPer100g: 8,
+        carbsPer100g: 13,
+      ),
+    ]);
+
+    final service = FoodLookupService(private, external);
+    final results = await service.search('match');
+
+    expect(results, hasLength(1));
+    expect(results.single.existingPrivateFoodId, 7);
+    expect(results.single.isFavorite, true);
+    expect(results.single.name, 'Local Match');
+  });
+
   test('lookupBarcode prefers the private match and skips the external call', () async {
     var externalCalled = false;
     final private = _FakeSource(

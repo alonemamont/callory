@@ -394,4 +394,71 @@ void main() {
     expect(foods.single.id, existingId);
     expect(foods.single.isFavorite, true);
   });
+
+  testWidgets('search shows local favorite state for an external barcode match', (tester) async {
+    await seedPrivateFood(
+      db,
+      name: 'Local Match',
+      barcode: '222',
+      isFavorite: true,
+    );
+    await pumpAddFoodScreen(
+      tester,
+      db: db,
+      externalSource: _FakeFoodSource(
+        searchResults: const [
+          FoodResult(
+            name: 'External Match',
+            barcode: '222',
+            kcalPer100g: 210,
+            proteinPer100g: 21,
+            fatPer100g: 9,
+            carbsPer100g: 16,
+          ),
+        ],
+      ),
+    );
+
+    await tester.tap(find.text('Search'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.widgetWithText(TextField, 'Search foods'), 'Match');
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await tester.pumpAndSettle();
+
+    expect(find.byIcon(Icons.star), findsOneWidget);
+    expect(find.textContaining('(in your foods)'), findsOneWidget);
+  });
+
+  testWidgets('saving an external dialog result reuses an existing local barcode row', (tester) async {
+    final existingId = await seedPrivateFood(
+      db,
+      name: 'Local Cereal',
+      barcode: '333',
+      isFavorite: false,
+    );
+    await pumpDialogHost(
+      tester,
+      initial: const FoodResult(
+        name: 'External Cereal',
+        kcalPer100g: 240,
+        proteinPer100g: 12,
+        fatPer100g: 6,
+        carbsPer100g: 30,
+      ),
+      barcode: '333',
+    );
+
+    await tester.enterText(find.widgetWithText(TextField, 'Grams eaten'), '150');
+    await tester.tap(find.text('Save'));
+    await tester.pumpAndSettle();
+
+    final foods = await db.select(db.privateFoods).get();
+    final entries = await db.select(db.diaryEntries).get();
+    expect(foods, hasLength(1));
+    expect(foods.single.id, existingId);
+    expect(foods.single.barcode, '333');
+    expect(foods.single.name, 'External Cereal');
+    expect(entries, hasLength(1));
+    expect(entries.single.privateFoodId, existingId);
+  });
 }
