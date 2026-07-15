@@ -19,6 +19,15 @@ subprojects {
     project.evaluationDependsOn(":app")
 }
 
+subprojects {
+    val bumpCompileSdk: () -> Unit = {
+        extensions.findByType(com.android.build.gradle.LibraryExtension::class.java)?.let {
+            it.compileSdk = 36
+        }
+    }
+    if (state.executed) bumpCompileSdk() else afterEvaluate { bumpCompileSdk() }
+}
+
 tasks.register<Delete>("clean") {
     delete(rootProject.layout.buildDirectory)
 }

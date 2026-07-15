@@ -1,10 +1,10 @@
-import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:callory/db/database.dart';
 import 'package:callory/domain/food_source.dart';
 import 'package:callory/providers/providers.dart';
 import 'package:callory/ui/widgets/number_field.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:mobile_scanner/mobile_scanner.dart';
 
 class AddFoodScreen extends ConsumerStatefulWidget {
   const AddFoodScreen({super.key});
@@ -13,7 +13,8 @@ class AddFoodScreen extends ConsumerStatefulWidget {
   ConsumerState<AddFoodScreen> createState() => _AddFoodScreenState();
 }
 
-class _AddFoodScreenState extends ConsumerState<AddFoodScreen> with SingleTickerProviderStateMixin {
+class _AddFoodScreenState extends ConsumerState<AddFoodScreen>
+    with SingleTickerProviderStateMixin {
   late final TabController _tabController;
 
   @override
@@ -74,10 +75,9 @@ class _RecentTabState extends ConsumerState<_RecentTab> {
   var _favoritesOnly = false;
 
   Future<void> _toggleFavorite(FoodResult result) async {
-    await ref.read(foodRepositoryProvider).setFavorite(
-          result.existingPrivateFoodId!,
-          !result.isFavorite,
-        );
+    await ref
+        .read(foodRepositoryProvider)
+        .setFavorite(result.existingPrivateFoodId!, !result.isFavorite);
     if (mounted) {
       setState(() {});
     }
@@ -86,9 +86,9 @@ class _RecentTabState extends ConsumerState<_RecentTab> {
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<List<FoodResult>>(
-      future: ref.read(foodRepositoryProvider).getRecentFoods(
-            favoritesOnly: _favoritesOnly,
-          ),
+      future: ref
+          .read(foodRepositoryProvider)
+          .getRecentFoods(favoritesOnly: _favoritesOnly),
       builder: (context, snapshot) {
         if (!snapshot.hasData) {
           return const Center(child: CircularProgressIndicator());
@@ -136,6 +136,7 @@ class _RecentTabState extends ConsumerState<_RecentTab> {
                           context: context,
                           ref: ref,
                           initial: result,
+                          barcode: result.barcode,
                         );
                         if (mounted) {
                           setState(() {});
@@ -156,13 +157,16 @@ class _SearchTabState extends ConsumerState<_SearchTab> {
   final _controller = TextEditingController();
   List<FoodResult> _results = [];
   var _updatingFavorite = false;
+  int _searchGeneration = 0;
 
   Future<void> _search(String query) async {
+    final generation = ++_searchGeneration;
     if (query.trim().isEmpty) {
       setState(() => _results = []);
       return;
     }
     final results = await ref.read(foodLookupServiceProvider).search(query);
+    if (!mounted || generation != _searchGeneration) return;
     setState(() => _results = results);
   }
 
@@ -287,25 +291,24 @@ class _BarcodeTabState extends ConsumerState<_BarcodeTab> {
         if (barcode == null) return;
         _handlingDetection = true;
         try {
-        final result = await ref.read(foodLookupServiceProvider).lookupBarcode(
-              barcode,
+          final result = await ref
+              .read(foodLookupServiceProvider)
+              .lookupBarcode(barcode);
+          if (!context.mounted) return;
+          if (result == null) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Product not found — enter it manually'),
+              ),
             );
-        if (!context.mounted) {
-          _handlingDetection = false;
-          return;
-        }
-        if (result == null) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Product not found — enter it manually')),
+            return;
+          }
+          await showEditableFoodDialog(
+            context: context,
+            ref: ref,
+            initial: result,
+            barcode: barcode,
           );
-          return;
-        }
-        await showEditableFoodDialog(
-          context: context,
-          ref: ref,
-          initial: result,
-          barcode: barcode,
-        );
         } finally {
           _handlingDetection = false;
         }
@@ -321,37 +324,49 @@ class _ManualTab extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     return Center(
       child: ElevatedButton(
-        onPressed: () => showEditableFoodDialog(
-          context: context,
-          ref: ref,
-          initial: const FoodResult(
-            name: '',
-            kcalPer100g: 0,
-            proteinPer100g: 0,
-            fatPer100g: 0,
-            carbsPer100g: 0,
-          ),
-        ),
+        onPressed: () async {
+          final saved = await showEditableFoodDialog(
+            context: context,
+            ref: ref,
+            initial: const FoodResult(
+              name: '',
+              kcalPer100g: 0,
+              proteinPer100g: 0,
+              fatPer100g: 0,
+              carbsPer100g: 0,
+            ),
+          );
+          if (saved && context.mounted) {
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(const SnackBar(content: Text('Food saved')));
+          }
+        },
         child: const Text('Add food manually'),
       ),
     );
   }
 }
 
-/// Shows an editable card for a [FoodResult] (from barcode lookup, external
-/// search, or a blank manual entry), lets the user adjust fields and grams,
-/// saves it to the private food database, and logs a diary entry for it.
-Future<void> showEditableFoodDialog({
+Future<bool> showEditableFoodDialog({
   required BuildContext context,
   required WidgetRef ref,
   required FoodResult initial,
   String? barcode,
 }) async {
   final nameController = TextEditingController(text: initial.name);
-  final kcalController = TextEditingController(text: initial.kcalPer100g.toString());
-  final proteinController = TextEditingController(text: initial.proteinPer100g.toString());
-  final fatController = TextEditingController(text: initial.fatPer100g.toString());
-  final carbsController = TextEditingController(text: initial.carbsPer100g.toString());
+  final kcalController = TextEditingController(
+    text: initial.kcalPer100g.toString(),
+  );
+  final proteinController = TextEditingController(
+    text: initial.proteinPer100g.toString(),
+  );
+  final fatController = TextEditingController(
+    text: initial.fatPer100g.toString(),
+  );
+  final carbsController = TextEditingController(
+    text: initial.carbsPer100g.toString(),
+  );
   final gramsController = TextEditingController(text: '100');
   var isFavorite = initial.isFavorite;
 
@@ -364,30 +379,49 @@ Future<void> showEditableFoodDialog({
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              TextField(controller: nameController, decoration: const InputDecoration(labelText: 'Name')),
+              TextField(
+                controller: nameController,
+                decoration: const InputDecoration(labelText: 'Name'),
+              ),
               NumberField(controller: kcalController, labelText: 'Kcal / 100g'),
-              NumberField(controller: proteinController, labelText: 'Protein / 100g'),
+              NumberField(
+                controller: proteinController,
+                labelText: 'Protein / 100g',
+              ),
               NumberField(controller: fatController, labelText: 'Fat / 100g'),
-              NumberField(controller: carbsController, labelText: 'Carbs / 100g'),
-              NumberField(controller: gramsController, labelText: 'Grams eaten'),
+              NumberField(
+                controller: carbsController,
+                labelText: 'Carbs / 100g',
+              ),
+              NumberField(
+                controller: gramsController,
+                labelText: 'Grams eaten',
+              ),
               CheckboxListTile(
                 contentPadding: EdgeInsets.zero,
                 value: isFavorite,
                 title: const Text('Favorite'),
-                onChanged: (value) => setState(() => isFavorite = value ?? false),
+                onChanged: (value) =>
+                    setState(() => isFavorite = value ?? false),
               ),
             ],
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
-          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Save')),
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Save'),
+          ),
         ],
       ),
     ),
   );
 
-  if (confirmed != true) return;
+  if (confirmed != true) return false;
 
   final kcalPer100g = double.tryParse(kcalController.text) ?? 0;
   final proteinPer100g = double.tryParse(proteinController.text) ?? 0;
@@ -401,6 +435,7 @@ Future<void> showEditableFoodDialog({
       : await foodRepo.findByBarcode(barcode);
   final privateFoodId =
       initial.existingPrivateFoodId ?? existingByBarcode?.existingPrivateFoodId;
+
   if (privateFoodId != null) {
     await foodRepo.updateFood(
       privateFoodId,
@@ -422,22 +457,24 @@ Future<void> showEditableFoodDialog({
       fatPer100g: fatPer100g,
       carbsPer100g: carbsPer100g,
     );
-    return;
+    return true;
   }
 
   final source = barcode != null
       ? FoodSourceType.barcode
-      : (initial.name.isEmpty ? FoodSourceType.manual : FoodSourceType.copiedExternal);
+      : (initial.name.isEmpty
+            ? FoodSourceType.manual
+            : FoodSourceType.copiedExternal);
   final newId = await foodRepo.insertFood(
-        name: nameController.text,
-        barcode: barcode,
-        kcalPer100g: kcalPer100g,
-        proteinPer100g: proteinPer100g,
-        fatPer100g: fatPer100g,
-        carbsPer100g: carbsPer100g,
-        source: source,
-        isFavorite: isFavorite,
-      );
+    name: nameController.text,
+    barcode: barcode,
+    kcalPer100g: kcalPer100g,
+    proteinPer100g: proteinPer100g,
+    fatPer100g: fatPer100g,
+    carbsPer100g: carbsPer100g,
+    source: source,
+    isFavorite: isFavorite,
+  );
   await _logEntry(
     ref,
     privateFoodId: newId,
@@ -448,6 +485,7 @@ Future<void> showEditableFoodDialog({
     fatPer100g: fatPer100g,
     carbsPer100g: carbsPer100g,
   );
+  return true;
 }
 
 Future<void> _logEntry(
@@ -462,7 +500,9 @@ Future<void> _logEntry(
 }) async {
   final settings = ref.read(settingsServiceProvider);
   final selectedDay = ref.read(selectedDayProvider);
-  await ref.read(diaryRepositoryProvider).addEntry(
+  await ref
+      .read(diaryRepositoryProvider)
+      .addEntry(
         privateFoodId: privateFoodId,
         foodNameSnapshot: name,
         grams: grams,

@@ -1,3 +1,5 @@
+import 'package:callory/data/food_lookup_service.dart';
+import 'package:callory/data/food_repository.dart';
 import 'package:callory/data/open_food_facts_source.dart';
 import 'package:callory/data/settings_service.dart';
 import 'package:callory/db/database.dart';
@@ -10,6 +12,44 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+class _EmptySource implements FoodSource {
+  @override
+  Future<List<FoodResult>> searchByName(String query) async => [];
+
+  @override
+  Future<FoodResult?> lookupBarcode(String barcode) async => null;
+}
+
+class _SlowThenFastSource implements FoodSource {
+  @override
+  Future<List<FoodResult>> searchByName(String query) async {
+    if (query == 'slow-query') {
+      await Future.delayed(const Duration(milliseconds: 200));
+      return [
+        const FoodResult(
+          name: 'Slow Result',
+          kcalPer100g: 1,
+          proteinPer100g: 1,
+          fatPer100g: 1,
+          carbsPer100g: 1,
+        ),
+      ];
+    }
+    return [
+      const FoodResult(
+        name: 'Fast Result',
+        kcalPer100g: 2,
+        proteinPer100g: 2,
+        fatPer100g: 2,
+        carbsPer100g: 2,
+      ),
+    ];
+  }
+
+  @override
+  Future<FoodResult?> lookupBarcode(String barcode) async => null;
+}
 
 class _FakeFoodSource extends OpenFoodFactsSource {
   _FakeFoodSource({this.searchResults = const [], this.barcodeResult});
@@ -85,6 +125,7 @@ void main() {
     WidgetTester tester, {
     required AppDatabase db,
     OpenFoodFactsSource? externalSource,
+    FoodLookupService? foodLookupService,
   }) async {
     final prefs = await SharedPreferences.getInstance();
     await tester.pumpWidget(
@@ -94,6 +135,8 @@ void main() {
           settingsServiceProvider.overrideWithValue(SettingsService(prefs)),
           if (externalSource != null)
             openFoodFactsSourceProvider.overrideWithValue(externalSource),
+          if (foodLookupService != null)
+            foodLookupServiceProvider.overrideWithValue(foodLookupService),
         ],
         child: const MaterialApp(home: AddFoodScreen()),
       ),
@@ -107,7 +150,9 @@ void main() {
     String? barcode,
     required bool isFavorite,
   }) {
-    return db.into(db.privateFoods).insert(
+    return db
+        .into(db.privateFoods)
+        .insert(
           PrivateFoodsCompanion.insert(
             name: name,
             barcode: Value(barcode),
@@ -132,10 +177,14 @@ void main() {
       name: name,
       isFavorite: isFavorite,
     );
-    final mealId = await db.into(db.meals).insert(
+    final mealId = await db
+        .into(db.meals)
+        .insert(
           MealsCompanion.insert(dayDate: DateTime(2026, 7, 15), mealNumber: 1),
         );
-    await db.into(db.diaryEntries).insert(
+    await db
+        .into(db.diaryEntries)
+        .insert(
           DiaryEntriesCompanion.insert(
             mealId: mealId,
             privateFoodId: Value(foodId),
@@ -153,7 +202,81 @@ void main() {
     return foodId;
   }
 
-  testWidgets('manual save can create a favorite product and one diary entry', (tester) async {
+  testWidgets(
+    'editing an existing private food and re-saving updates the stored macros',
+    (tester) async {
+      final foodRepo = FoodRepository(db);
+      final existingId = await foodRepo.insertFood(
+        name: 'My Yogurt',
+        kcalPer100g: 90,
+        proteinPer100g: 10,
+        fatPer100g: 4,
+        carbsPer100g: 4,
+        source: FoodSourceType.manual,
+      );
+
+      await pumpAddFoodScreen(
+        tester,
+        db: db,
+        foodLookupService: FoodLookupService(foodRepo, _EmptySource()),
+      );
+
+      await tester.tap(find.text('Search'));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.widgetWithText(TextField, 'Search foods'),
+        'yogurt',
+      );
+      await tester.testTextInput.receiveAction(TextInputAction.done);
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.textContaining('My Yogurt'));
+      await tester.pumpAndSettle();
+
+      final kcalField = find.widgetWithText(TextField, 'Kcal / 100g');
+      await tester.enterText(kcalField, '500');
+      await tester.tap(find.widgetWithText(TextButton, 'Save'));
+      await tester.pumpAndSettle();
+
+      final rows = await db.select(db.privateFoods).get();
+      expect(rows, hasLength(1));
+      expect(rows.single.id, existingId);
+      expect(rows.single.kcalPer100g, 500);
+    },
+  );
+
+  testWidgets(
+    'a stale slow search response does not overwrite a newer fast search',
+    (tester) async {
+      final source = _SlowThenFastSource();
+
+      await pumpAddFoodScreen(
+        tester,
+        db: db,
+        foodLookupService: FoodLookupService(_EmptySource(), source),
+      );
+
+      await tester.tap(find.text('Search'));
+      await tester.pumpAndSettle();
+
+      final searchField = find.widgetWithText(TextField, 'Search foods');
+
+      await tester.enterText(searchField, 'slow-query');
+      await tester.testTextInput.receiveAction(TextInputAction.done);
+      await tester.pump(const Duration(milliseconds: 20));
+
+      await tester.enterText(searchField, 'fast-query');
+      await tester.testTextInput.receiveAction(TextInputAction.done);
+      await tester.pumpAndSettle(const Duration(milliseconds: 300));
+
+      expect(find.textContaining('Fast Result'), findsOneWidget);
+      expect(find.textContaining('Slow Result'), findsNothing);
+    },
+  );
+
+  testWidgets('manual save can create a favorite product and one diary entry', (
+    tester,
+  ) async {
     await pumpDialogHost(
       tester,
       initial: const FoodResult(
@@ -210,58 +333,66 @@ void main() {
     expect(await db.select(db.diaryEntries).get(), isEmpty);
   });
 
-  testWidgets('saving a local product updates it instead of creating a duplicate row', (tester) async {
-    final id = await db.into(db.privateFoods).insert(
-          PrivateFoodsCompanion.insert(
-            name: 'Existing Food',
-            kcalPer100g: 100,
-            proteinPer100g: 1,
-            fatPer100g: 1,
-            carbsPer100g: 1,
-            source: FoodSourceType.manual,
-            createdAt: DateTime(2026, 1, 1),
-          ),
-        );
+  testWidgets(
+    'saving a local product updates it instead of creating a duplicate row',
+    (tester) async {
+      final id = await db
+          .into(db.privateFoods)
+          .insert(
+            PrivateFoodsCompanion.insert(
+              name: 'Existing Food',
+              kcalPer100g: 100,
+              proteinPer100g: 1,
+              fatPer100g: 1,
+              carbsPer100g: 1,
+              source: FoodSourceType.manual,
+              createdAt: DateTime(2026, 1, 1),
+            ),
+          );
 
-    await pumpDialogHost(
-      tester,
-      initial: FoodResult(
-        name: 'Existing Food',
-        kcalPer100g: 100,
-        proteinPer100g: 1,
-        fatPer100g: 1,
-        carbsPer100g: 1,
-        existingPrivateFoodId: id,
-        isFavorite: false,
-      ),
-    );
+      await pumpDialogHost(
+        tester,
+        initial: FoodResult(
+          name: 'Existing Food',
+          kcalPer100g: 100,
+          proteinPer100g: 1,
+          fatPer100g: 1,
+          carbsPer100g: 1,
+          existingPrivateFoodId: id,
+          isFavorite: false,
+        ),
+      );
 
-    await tester.enterText(
-      find.widgetWithText(TextField, 'Kcal / 100g'),
-      '150',
-    );
-    await tester.tap(find.byType(CheckboxListTile));
-    await tester.tap(find.text('Save'));
-    await tester.pumpAndSettle();
+      await tester.enterText(
+        find.widgetWithText(TextField, 'Kcal / 100g'),
+        '150',
+      );
+      await tester.tap(find.byType(CheckboxListTile));
+      await tester.tap(find.text('Save'));
+      await tester.pumpAndSettle();
 
-    final foods = await db.select(db.privateFoods).get();
-    final entries = await db.select(db.diaryEntries).get();
-    expect(foods, hasLength(1));
-    expect(foods.single.id, id);
-    expect(foods.single.kcalPer100g, 150);
-    expect(foods.single.isFavorite, true);
-    expect(entries, hasLength(1));
-  });
+      final foods = await db.select(db.privateFoods).get();
+      final entries = await db.select(db.diaryEntries).get();
+      expect(foods, hasLength(1));
+      expect(foods.single.id, id);
+      expect(foods.single.kcalPer100g, 150);
+      expect(foods.single.isFavorite, true);
+      expect(entries, hasLength(1));
+    },
+  );
 
-  testWidgets('initial tab is Recent and tab order is Recent Search Barcode Manual', (tester) async {
-    await pumpAddFoodScreen(tester, db: db);
+  testWidgets(
+    'initial tab is Recent and tab order is Recent Search Barcode Manual',
+    (tester) async {
+      await pumpAddFoodScreen(tester, db: db);
 
-    expect(find.text('Recent'), findsOneWidget);
-    expect(find.text('Search'), findsOneWidget);
-    expect(find.text('Barcode'), findsOneWidget);
-    expect(find.text('Manual'), findsOneWidget);
-    expect(find.text('Only favorites'), findsOneWidget);
-  });
+      expect(find.text('Recent'), findsOneWidget);
+      expect(find.text('Search'), findsOneWidget);
+      expect(find.text('Barcode'), findsOneWidget);
+      expect(find.text('Manual'), findsOneWidget);
+      expect(find.text('Only favorites'), findsOneWidget);
+    },
+  );
 
   testWidgets('empty recent state renders correctly', (tester) async {
     await pumpAddFoodScreen(tester, db: db);
@@ -278,7 +409,9 @@ void main() {
     expect(find.text('No favorite recent foods yet'), findsOneWidget);
   });
 
-  testWidgets('recent favorite toggle updates the row immediately', (tester) async {
+  testWidgets('recent favorite toggle updates the row immediately', (
+    tester,
+  ) async {
     final id = await seedUsedFood(db, name: 'Recent Oats', isFavorite: false);
     await pumpAddFoodScreen(tester, db: db);
 
@@ -300,7 +433,9 @@ void main() {
     expect(find.text('Food details'), findsOneWidget);
   });
 
-  testWidgets('local search result favorite toggle does not open dialog', (tester) async {
+  testWidgets('local search result favorite toggle does not open dialog', (
+    tester,
+  ) async {
     await seedPrivateFood(
       db,
       name: 'Local Yogurt',
@@ -311,7 +446,10 @@ void main() {
 
     await tester.tap(find.text('Search'));
     await tester.pumpAndSettle();
-    await tester.enterText(find.widgetWithText(TextField, 'Search foods'), 'Yogurt');
+    await tester.enterText(
+      find.widgetWithText(TextField, 'Search foods'),
+      'Yogurt',
+    );
     await tester.testTextInput.receiveAction(TextInputAction.done);
     await tester.pumpAndSettle();
 
@@ -322,189 +460,216 @@ void main() {
     expect((await db.select(db.privateFoods).get()).single.isFavorite, true);
   });
 
-  testWidgets('external search favorite creates one local row and no diary entry', (tester) async {
-    await pumpAddFoodScreen(
-      tester,
-      db: db,
-      externalSource: _FakeFoodSource(
-        searchResults: const [
-          FoodResult(
-            name: 'External Bar',
-            barcode: '999',
-            kcalPer100g: 200,
-            proteinPer100g: 20,
-            fatPer100g: 8,
-            carbsPer100g: 15,
-          ),
-        ],
-      ),
-    );
+  testWidgets(
+    'external search favorite creates one local row and no diary entry',
+    (tester) async {
+      await pumpAddFoodScreen(
+        tester,
+        db: db,
+        externalSource: _FakeFoodSource(
+          searchResults: const [
+            FoodResult(
+              name: 'External Bar',
+              barcode: '999',
+              kcalPer100g: 200,
+              proteinPer100g: 20,
+              fatPer100g: 8,
+              carbsPer100g: 15,
+            ),
+          ],
+        ),
+      );
 
-    await tester.tap(find.text('Search'));
-    await tester.pumpAndSettle();
-    await tester.enterText(find.widgetWithText(TextField, 'Search foods'), 'Bar');
-    await tester.testTextInput.receiveAction(TextInputAction.done);
-    await tester.pumpAndSettle();
+      await tester.tap(find.text('Search'));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.widgetWithText(TextField, 'Search foods'),
+        'Bar',
+      );
+      await tester.testTextInput.receiveAction(TextInputAction.done);
+      await tester.pumpAndSettle();
 
-    await tester.tap(find.byIcon(Icons.star_border));
-    await tester.pumpAndSettle();
+      await tester.tap(find.byIcon(Icons.star_border));
+      await tester.pumpAndSettle();
 
-    final foods = await db.select(db.privateFoods).get();
-    final entries = await db.select(db.diaryEntries).get();
-    expect(foods, hasLength(1));
-    expect(foods.single.barcode, '999');
-    expect(foods.single.isFavorite, true);
-    expect(entries, isEmpty);
-  });
+      final foods = await db.select(db.privateFoods).get();
+      final entries = await db.select(db.diaryEntries).get();
+      expect(foods, hasLength(1));
+      expect(foods.single.barcode, '999');
+      expect(foods.single.isFavorite, true);
+      expect(entries, isEmpty);
+    },
+  );
 
-  testWidgets('favoriting an external result with an existing local barcode updates instead of duplicating', (tester) async {
-    final existingId = await seedPrivateFood(
-      db,
-      name: 'Local Bar',
-      barcode: '222',
-      isFavorite: false,
-    );
-    await pumpAddFoodScreen(
-      tester,
-      db: db,
-      externalSource: _FakeFoodSource(
-        searchResults: const [
-          FoodResult(
-            name: 'External Bar',
-            barcode: '222',
-            kcalPer100g: 210,
-            proteinPer100g: 21,
-            fatPer100g: 9,
-            carbsPer100g: 16,
-          ),
-        ],
-      ),
-    );
+  testWidgets(
+    'favoriting an external result with an existing local barcode updates instead of duplicating',
+    (tester) async {
+      final existingId = await seedPrivateFood(
+        db,
+        name: 'Local Bar',
+        barcode: '222',
+        isFavorite: false,
+      );
+      await pumpAddFoodScreen(
+        tester,
+        db: db,
+        externalSource: _FakeFoodSource(
+          searchResults: const [
+            FoodResult(
+              name: 'External Bar',
+              barcode: '222',
+              kcalPer100g: 210,
+              proteinPer100g: 21,
+              fatPer100g: 9,
+              carbsPer100g: 16,
+            ),
+          ],
+        ),
+      );
 
-    await tester.tap(find.text('Search'));
-    await tester.pumpAndSettle();
-    await tester.enterText(find.widgetWithText(TextField, 'Search foods'), 'Bar');
-    await tester.testTextInput.receiveAction(TextInputAction.done);
-    await tester.pumpAndSettle();
-    await tester.tap(find.byIcon(Icons.star_border).last);
-    await tester.pumpAndSettle();
+      await tester.tap(find.text('Search'));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.widgetWithText(TextField, 'Search foods'),
+        'Bar',
+      );
+      await tester.testTextInput.receiveAction(TextInputAction.done);
+      await tester.pumpAndSettle();
+      await tester.tap(find.byIcon(Icons.star_border).last);
+      await tester.pumpAndSettle();
 
-    final foods = await db.select(db.privateFoods).get();
-    expect(foods, hasLength(1));
-    expect(foods.single.id, existingId);
-    expect(foods.single.isFavorite, true);
-  });
+      final foods = await db.select(db.privateFoods).get();
+      expect(foods, hasLength(1));
+      expect(foods.single.id, existingId);
+      expect(foods.single.isFavorite, true);
+    },
+  );
 
-  testWidgets('search shows canonical local favorite state for an external barcode match', (tester) async {
-    await seedPrivateFood(
-      db,
-      name: 'Older Duplicate',
-      barcode: '222',
-      isFavorite: false,
-    );
-    await seedPrivateFood(
-      db,
-      name: 'Local Match',
-      barcode: '222',
-      isFavorite: true,
-    );
-    await pumpAddFoodScreen(
-      tester,
-      db: db,
-      externalSource: _FakeFoodSource(
-        searchResults: const [
-          FoodResult(
-            name: 'External Match',
-            barcode: '222',
-            kcalPer100g: 210,
-            proteinPer100g: 21,
-            fatPer100g: 9,
-            carbsPer100g: 16,
-          ),
-        ],
-      ),
-    );
+  testWidgets(
+    'search shows canonical local favorite state for an external barcode match',
+    (tester) async {
+      await seedPrivateFood(
+        db,
+        name: 'Older Duplicate',
+        barcode: '222',
+        isFavorite: false,
+      );
+      await seedPrivateFood(
+        db,
+        name: 'Local Match',
+        barcode: '222',
+        isFavorite: true,
+      );
+      await pumpAddFoodScreen(
+        tester,
+        db: db,
+        externalSource: _FakeFoodSource(
+          searchResults: const [
+            FoodResult(
+              name: 'External Match',
+              barcode: '222',
+              kcalPer100g: 210,
+              proteinPer100g: 21,
+              fatPer100g: 9,
+              carbsPer100g: 16,
+            ),
+          ],
+        ),
+      );
 
-    await tester.tap(find.text('Search'));
-    await tester.pumpAndSettle();
-    await tester.enterText(find.widgetWithText(TextField, 'Search foods'), 'Match');
-    await tester.testTextInput.receiveAction(TextInputAction.done);
-    await tester.pumpAndSettle();
+      await tester.tap(find.text('Search'));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.widgetWithText(TextField, 'Search foods'),
+        'Match',
+      );
+      await tester.testTextInput.receiveAction(TextInputAction.done);
+      await tester.pumpAndSettle();
 
-    expect(find.byIcon(Icons.star), findsOneWidget);
-    expect(find.textContaining('(in your foods)'), findsOneWidget);
-  });
+      expect(find.byIcon(Icons.star), findsOneWidget);
+      expect(find.textContaining('(in your foods)'), findsOneWidget);
+    },
+  );
 
-  testWidgets('saving an external dialog result reuses an existing local barcode row', (tester) async {
-    final existingId = await seedPrivateFood(
-      db,
-      name: 'Local Cereal',
-      barcode: '333',
-      isFavorite: false,
-    );
-    await pumpDialogHost(
-      tester,
-      initial: const FoodResult(
-        name: 'External Cereal',
-        kcalPer100g: 240,
-        proteinPer100g: 12,
-        fatPer100g: 6,
-        carbsPer100g: 30,
-      ),
-      barcode: '333',
-    );
+  testWidgets(
+    'saving an external dialog result reuses an existing local barcode row',
+    (tester) async {
+      final existingId = await seedPrivateFood(
+        db,
+        name: 'Local Cereal',
+        barcode: '333',
+        isFavorite: false,
+      );
+      await pumpDialogHost(
+        tester,
+        initial: const FoodResult(
+          name: 'External Cereal',
+          kcalPer100g: 240,
+          proteinPer100g: 12,
+          fatPer100g: 6,
+          carbsPer100g: 30,
+        ),
+        barcode: '333',
+      );
 
-    await tester.enterText(find.widgetWithText(TextField, 'Grams eaten'), '150');
-    await tester.tap(find.text('Save'));
-    await tester.pumpAndSettle();
+      await tester.enterText(
+        find.widgetWithText(TextField, 'Grams eaten'),
+        '150',
+      );
+      await tester.tap(find.text('Save'));
+      await tester.pumpAndSettle();
 
-    final foods = await db.select(db.privateFoods).get();
-    final entries = await db.select(db.diaryEntries).get();
-    expect(foods, hasLength(1));
-    expect(foods.single.id, existingId);
-    expect(foods.single.barcode, '333');
-    expect(foods.single.name, 'External Cereal');
-    expect(entries, hasLength(1));
-    expect(entries.single.privateFoodId, existingId);
-  });
+      final foods = await db.select(db.privateFoods).get();
+      final entries = await db.select(db.diaryEntries).get();
+      expect(foods, hasLength(1));
+      expect(foods.single.id, existingId);
+      expect(foods.single.barcode, '333');
+      expect(foods.single.name, 'External Cereal');
+      expect(entries, hasLength(1));
+      expect(entries.single.privateFoodId, existingId);
+    },
+  );
 
-  testWidgets('saving an external dialog result with duplicate local barcodes reuses the canonical favorite row', (tester) async {
-    await seedPrivateFood(
-      db,
-      name: 'First Duplicate',
-      barcode: '444',
-      isFavorite: false,
-    );
-    final favoriteId = await seedPrivateFood(
-      db,
-      name: 'Second Duplicate',
-      barcode: '444',
-      isFavorite: true,
-    );
-    await pumpDialogHost(
-      tester,
-      initial: const FoodResult(
-        name: 'External Duplicate',
-        kcalPer100g: 260,
-        proteinPer100g: 14,
-        fatPer100g: 7,
-        carbsPer100g: 31,
-      ),
-      barcode: '444',
-    );
+  testWidgets(
+    'saving an external dialog result with duplicate local barcodes reuses the canonical favorite row',
+    (tester) async {
+      await seedPrivateFood(
+        db,
+        name: 'First Duplicate',
+        barcode: '444',
+        isFavorite: false,
+      );
+      final favoriteId = await seedPrivateFood(
+        db,
+        name: 'Second Duplicate',
+        barcode: '444',
+        isFavorite: true,
+      );
+      await pumpDialogHost(
+        tester,
+        initial: const FoodResult(
+          name: 'External Duplicate',
+          kcalPer100g: 260,
+          proteinPer100g: 14,
+          fatPer100g: 7,
+          carbsPer100g: 31,
+        ),
+        barcode: '444',
+      );
 
-    await tester.tap(find.text('Save'));
-    await tester.pumpAndSettle();
+      await tester.tap(find.text('Save'));
+      await tester.pumpAndSettle();
 
-    final foods = await db.select(db.privateFoods).get()
-      ..sort((a, b) => a.id.compareTo(b.id));
-    final entries = await db.select(db.diaryEntries).get();
-    expect(foods, hasLength(2));
-    expect(
-      foods.singleWhere((food) => food.id == favoriteId).name,
-      'External Duplicate',
-    );
-    expect(entries, hasLength(1));
-    expect(entries.single.privateFoodId, favoriteId);
-  });
+      final foods = await db.select(db.privateFoods).get()
+        ..sort((a, b) => a.id.compareTo(b.id));
+      final entries = await db.select(db.diaryEntries).get();
+      expect(foods, hasLength(2));
+      expect(
+        foods.singleWhere((food) => food.id == favoriteId).name,
+        'External Duplicate',
+      );
+      expect(entries, hasLength(1));
+      expect(entries.single.privateFoodId, favoriteId);
+    },
+  );
 }
