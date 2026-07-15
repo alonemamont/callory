@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:callory/db/database.dart';
 import 'package:callory/domain/bmr_calculator.dart';
 import 'package:callory/providers/providers.dart';
+import 'package:callory/ui/widgets/number_field.dart';
 
 enum _Mode { manual, calculated }
 
@@ -119,29 +120,25 @@ class _GoalsScreenState extends ConsumerState<GoalsScreen> {
           ),
           const SizedBox(height: 16),
           if (_mode == _Mode.manual) ...[
-            TextField(
-              key: const Key('manualKcalField'),
+            NumberField(
+              fieldKey: const Key('manualKcalField'),
               controller: _kcalController,
-              decoration: const InputDecoration(labelText: 'Daily kcal'),
-              keyboardType: TextInputType.number,
+              labelText: 'Daily kcal',
             ),
-            TextField(
-              key: const Key('manualProteinField'),
+            NumberField(
+              fieldKey: const Key('manualProteinField'),
               controller: _proteinController,
-              decoration: const InputDecoration(labelText: 'Protein (g)'),
-              keyboardType: TextInputType.number,
+              labelText: 'Protein (g)',
             ),
-            TextField(
-              key: const Key('manualFatField'),
+            NumberField(
+              fieldKey: const Key('manualFatField'),
               controller: _fatController,
-              decoration: const InputDecoration(labelText: 'Fat (g)'),
-              keyboardType: TextInputType.number,
+              labelText: 'Fat (g)',
             ),
-            TextField(
-              key: const Key('manualCarbsField'),
+            NumberField(
+              fieldKey: const Key('manualCarbsField'),
               controller: _carbsController,
-              decoration: const InputDecoration(labelText: 'Carbs (g)'),
-              keyboardType: TextInputType.number,
+              labelText: 'Carbs (g)',
             ),
           ] else ...[
             DropdownButton<Sex>(
@@ -150,23 +147,20 @@ class _GoalsScreenState extends ConsumerState<GoalsScreen> {
               items: Sex.values.map((s) => DropdownMenuItem(value: s, child: Text(s.name))).toList(),
               onChanged: (value) => setState(() => _sex = value!),
             ),
-            TextField(
-              key: const Key('calcAgeField'),
+            NumberField(
+              fieldKey: const Key('calcAgeField'),
               controller: _ageController,
-              decoration: const InputDecoration(labelText: 'Age'),
-              keyboardType: TextInputType.number,
+              labelText: 'Age',
             ),
-            TextField(
-              key: const Key('calcWeightField'),
+            NumberField(
+              fieldKey: const Key('calcWeightField'),
               controller: _weightController,
-              decoration: const InputDecoration(labelText: 'Weight (kg)'),
-              keyboardType: TextInputType.number,
+              labelText: 'Weight (kg)',
             ),
-            TextField(
-              key: const Key('calcHeightField'),
+            NumberField(
+              fieldKey: const Key('calcHeightField'),
               controller: _heightController,
-              decoration: const InputDecoration(labelText: 'Height (cm)'),
-              keyboardType: TextInputType.number,
+              labelText: 'Height (cm)',
             ),
             DropdownButton<ActivityLevel>(
               value: _activityLevel,
