@@ -34,6 +34,26 @@ void main() {
     expect(result.existingPrivateFoodId, id);
   });
 
+  test('stored favorites are exposed on FoodResult mappings', () async {
+    await repo.insertFood(
+      name: 'Favorite Yogurt',
+      barcode: '999',
+      kcalPer100g: 60,
+      proteinPer100g: 5,
+      fatPer100g: 2,
+      carbsPer100g: 7,
+      source: FoodSourceType.barcode,
+      isFavorite: true,
+    );
+
+    final byBarcode = await repo.findByBarcode('999');
+    final bySearch = await repo.searchByName('Favorite');
+
+    expect(byBarcode, isNotNull);
+    expect(byBarcode!.isFavorite, true);
+    expect(bySearch.single.isFavorite, true);
+  });
+
   test('searchByName is case-insensitive and matches substrings', () async {
     await repo.insertFood(
       name: 'Greek Yogurt',

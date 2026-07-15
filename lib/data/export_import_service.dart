@@ -35,7 +35,9 @@ class ExportImportService {
       await db.delete(db.goals).go();
 
       for (final row in (json['privateFoods'] as List)) {
-        final food = PrivateFood.fromJson(row as Map<String, dynamic>);
+        final foodJson = Map<String, dynamic>.from(row as Map<String, dynamic>);
+        foodJson.putIfAbsent('isFavorite', () => false);
+        final food = PrivateFood.fromJson(foodJson);
         await db.into(db.privateFoods).insert(food.toCompanion(true));
       }
       for (final row in (json['meals'] as List)) {

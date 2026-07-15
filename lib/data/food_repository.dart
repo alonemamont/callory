@@ -14,6 +14,7 @@ class FoodRepository implements FoodSource {
     required double fatPer100g,
     required double carbsPer100g,
     required FoodSourceType source,
+    bool isFavorite = false,
   }) {
     return db.into(db.privateFoods).insert(PrivateFoodsCompanion.insert(
           name: name,
@@ -23,6 +24,7 @@ class FoodRepository implements FoodSource {
           fatPer100g: fatPer100g,
           carbsPer100g: carbsPer100g,
           source: source,
+          isFavorite: Value(isFavorite),
           createdAt: DateTime.now(),
         ));
   }
@@ -78,5 +80,6 @@ class FoodRepository implements FoodSource {
         fatPer100g: row.fatPer100g,
         carbsPer100g: row.carbsPer100g,
         existingPrivateFoodId: row.id,
+        isFavorite: row.isFavorite,
       );
 }
