@@ -461,4 +461,42 @@ void main() {
     expect(entries, hasLength(1));
     expect(entries.single.privateFoodId, existingId);
   });
+
+  testWidgets('saving an external dialog result with duplicate local barcodes does not crash', (tester) async {
+    final firstId = await seedPrivateFood(
+      db,
+      name: 'First Duplicate',
+      barcode: '444',
+      isFavorite: false,
+    );
+    await seedPrivateFood(
+      db,
+      name: 'Second Duplicate',
+      barcode: '444',
+      isFavorite: true,
+    );
+    await pumpDialogHost(
+      tester,
+      initial: const FoodResult(
+        name: 'External Duplicate',
+        kcalPer100g: 260,
+        proteinPer100g: 14,
+        fatPer100g: 7,
+        carbsPer100g: 31,
+      ),
+      barcode: '444',
+    );
+
+    await tester.tap(find.text('Save'));
+    await tester.pumpAndSettle();
+
+    final foods = await db.select(db.privateFoods).get()
+      ..sort((a, b) => a.id.compareTo(b.id));
+    final entries = await db.select(db.diaryEntries).get();
+    expect(foods, hasLength(2));
+    expect(foods.first.id, firstId);
+    expect(foods.first.name, 'External Duplicate');
+    expect(entries, hasLength(1));
+    expect(entries.single.privateFoodId, firstId);
+  });
 }

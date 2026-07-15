@@ -68,7 +68,9 @@ class FoodRepository implements FoodSource {
 
   Future<FoodResult?> findByBarcode(String barcode) async {
     final row = await (db.select(db.privateFoods)
-          ..where((f) => f.barcode.equals(barcode)))
+          ..where((f) => f.barcode.equals(barcode))
+          ..orderBy([(f) => OrderingTerm.asc(f.id)])
+          ..limit(1))
         .getSingleOrNull();
     return row == null ? null : _toResult(row);
   }

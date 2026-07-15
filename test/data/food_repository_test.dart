@@ -55,6 +55,33 @@ void main() {
     expect(bySearch.single.isFavorite, true);
   });
 
+  test('findByBarcode tolerates duplicate local rows and returns the earliest match', () async {
+    final firstId = await repo.insertFood(
+      name: 'First Duplicate',
+      barcode: 'dup-1',
+      kcalPer100g: 60,
+      proteinPer100g: 5,
+      fatPer100g: 2,
+      carbsPer100g: 7,
+      source: FoodSourceType.barcode,
+    );
+    await repo.insertFood(
+      name: 'Second Duplicate',
+      barcode: 'dup-1',
+      kcalPer100g: 80,
+      proteinPer100g: 6,
+      fatPer100g: 3,
+      carbsPer100g: 8,
+      source: FoodSourceType.barcode,
+    );
+
+    final result = await repo.findByBarcode('dup-1');
+
+    expect(result, isNotNull);
+    expect(result!.existingPrivateFoodId, firstId);
+    expect(result.name, 'First Duplicate');
+  });
+
   test('insertFood defaults isFavorite to false and persists explicit true', () async {
     final defaultId = await repo.insertFood(
       name: 'Default Favorite',
