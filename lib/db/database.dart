@@ -19,6 +19,7 @@ class PrivateFoods extends Table {
   RealColumn get fatPer100g => real()();
   RealColumn get carbsPer100g => real()();
   IntColumn get source => intEnum<FoodSourceType>()();
+  BoolColumn get isFavorite => boolean().withDefault(const Constant(false))();
   DateTimeColumn get createdAt => dateTime()();
 }
 
@@ -68,10 +69,20 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.executor);
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
+        onUpgrade: (migrator, from, to) async {
+          if (from < 2) {
+            await migrator.addColumn(privateFoods, privateFoods.isFavorite);
+            await customStatement('''
+              UPDATE private_foods
+              SET is_favorite = 0
+              WHERE is_favorite IS NULL
+            ''');
+          }
+        },
         beforeOpen: (details) async {
           // Required for the DiaryEntries.privateFoodId ON DELETE SET NULL
           // action to actually fire — SQLite does not enforce FKs by default.

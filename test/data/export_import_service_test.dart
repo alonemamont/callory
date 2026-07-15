@@ -16,6 +16,7 @@ void main() {
             fatPer100g: 0.3,
             carbsPer100g: 28,
             source: FoodSourceType.manual,
+            isFavorite: const Value(true),
             createdAt: DateTime(2026, 1, 1),
           ),
         );
@@ -62,6 +63,8 @@ void main() {
 
     expect(foods, hasLength(1));
     expect(foods.single.name, 'Rice');
+    expect((json['privateFoods'] as List).single['isFavorite'], true);
+    expect(foods.single.isFavorite, true);
     expect(meals, hasLength(1));
     expect(entries, hasLength(1));
     expect(entries.single.kcalSnapshot, 260);
@@ -107,6 +110,38 @@ void main() {
 
     final foods = await db.select(db.privateFoods).get();
     expect(foods, isEmpty);
+
+    await db.close();
+  });
+
+  test('importFromJson accepts legacy format version 1 rows without isFavorite', () async {
+    final db = AppDatabase.forTesting(NativeDatabase.memory());
+    final service = ExportImportService(db);
+
+    await service.importFromJson({
+      'formatVersion': ExportImportService.formatVersion,
+      'privateFoods': [
+        {
+          'id': 1,
+          'name': 'Legacy Rice',
+          'barcode': null,
+          'kcalPer100g': 130.0,
+          'proteinPer100g': 3.0,
+          'fatPer100g': 0.3,
+          'carbsPer100g': 28.0,
+          'source': FoodSourceType.manual.index,
+          'createdAt': DateTime(2026, 1, 1).toIso8601String(),
+        },
+      ],
+      'meals': [],
+      'diaryEntries': [],
+      'goals': [],
+    });
+
+    final foods = await db.select(db.privateFoods).get();
+    expect(foods, hasLength(1));
+    expect(foods.single.name, 'Legacy Rice');
+    expect(foods.single.isFavorite, false);
 
     await db.close();
   });

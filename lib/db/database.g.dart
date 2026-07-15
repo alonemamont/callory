@@ -95,6 +95,21 @@ class $PrivateFoodsTable extends PrivateFoods
         type: DriftSqlType.int,
         requiredDuringInsert: true,
       ).withConverter<FoodSourceType>($PrivateFoodsTable.$convertersource);
+  static const VerificationMeta _isFavoriteMeta = const VerificationMeta(
+    'isFavorite',
+  );
+  @override
+  late final GeneratedColumn<bool> isFavorite = GeneratedColumn<bool>(
+    'is_favorite',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_favorite" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
   static const VerificationMeta _createdAtMeta = const VerificationMeta(
     'createdAt',
   );
@@ -116,6 +131,7 @@ class $PrivateFoodsTable extends PrivateFoods
     fatPer100g,
     carbsPer100g,
     source,
+    isFavorite,
     createdAt,
   ];
   @override
@@ -188,6 +204,12 @@ class $PrivateFoodsTable extends PrivateFoods
     } else if (isInserting) {
       context.missing(_carbsPer100gMeta);
     }
+    if (data.containsKey('is_favorite')) {
+      context.handle(
+        _isFavoriteMeta,
+        isFavorite.isAcceptableOrUnknown(data['is_favorite']!, _isFavoriteMeta),
+      );
+    }
     if (data.containsKey('created_at')) {
       context.handle(
         _createdAtMeta,
@@ -239,6 +261,10 @@ class $PrivateFoodsTable extends PrivateFoods
           data['${effectivePrefix}source'],
         )!,
       ),
+      isFavorite: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_favorite'],
+      )!,
       createdAt: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
         data['${effectivePrefix}created_at'],
@@ -264,6 +290,7 @@ class PrivateFood extends DataClass implements Insertable<PrivateFood> {
   final double fatPer100g;
   final double carbsPer100g;
   final FoodSourceType source;
+  final bool isFavorite;
   final DateTime createdAt;
   const PrivateFood({
     required this.id,
@@ -274,6 +301,7 @@ class PrivateFood extends DataClass implements Insertable<PrivateFood> {
     required this.fatPer100g,
     required this.carbsPer100g,
     required this.source,
+    required this.isFavorite,
     required this.createdAt,
   });
   @override
@@ -293,6 +321,7 @@ class PrivateFood extends DataClass implements Insertable<PrivateFood> {
         $PrivateFoodsTable.$convertersource.toSql(source),
       );
     }
+    map['is_favorite'] = Variable<bool>(isFavorite);
     map['created_at'] = Variable<DateTime>(createdAt);
     return map;
   }
@@ -309,6 +338,7 @@ class PrivateFood extends DataClass implements Insertable<PrivateFood> {
       fatPer100g: Value(fatPer100g),
       carbsPer100g: Value(carbsPer100g),
       source: Value(source),
+      isFavorite: Value(isFavorite),
       createdAt: Value(createdAt),
     );
   }
@@ -329,6 +359,7 @@ class PrivateFood extends DataClass implements Insertable<PrivateFood> {
       source: $PrivateFoodsTable.$convertersource.fromJson(
         serializer.fromJson<int>(json['source']),
       ),
+      isFavorite: serializer.fromJson<bool>(json['isFavorite']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
     );
   }
@@ -346,6 +377,7 @@ class PrivateFood extends DataClass implements Insertable<PrivateFood> {
       'source': serializer.toJson<int>(
         $PrivateFoodsTable.$convertersource.toJson(source),
       ),
+      'isFavorite': serializer.toJson<bool>(isFavorite),
       'createdAt': serializer.toJson<DateTime>(createdAt),
     };
   }
@@ -359,6 +391,7 @@ class PrivateFood extends DataClass implements Insertable<PrivateFood> {
     double? fatPer100g,
     double? carbsPer100g,
     FoodSourceType? source,
+    bool? isFavorite,
     DateTime? createdAt,
   }) => PrivateFood(
     id: id ?? this.id,
@@ -369,6 +402,7 @@ class PrivateFood extends DataClass implements Insertable<PrivateFood> {
     fatPer100g: fatPer100g ?? this.fatPer100g,
     carbsPer100g: carbsPer100g ?? this.carbsPer100g,
     source: source ?? this.source,
+    isFavorite: isFavorite ?? this.isFavorite,
     createdAt: createdAt ?? this.createdAt,
   );
   PrivateFood copyWithCompanion(PrivateFoodsCompanion data) {
@@ -389,6 +423,9 @@ class PrivateFood extends DataClass implements Insertable<PrivateFood> {
           ? data.carbsPer100g.value
           : this.carbsPer100g,
       source: data.source.present ? data.source.value : this.source,
+      isFavorite: data.isFavorite.present
+          ? data.isFavorite.value
+          : this.isFavorite,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
     );
   }
@@ -404,6 +441,7 @@ class PrivateFood extends DataClass implements Insertable<PrivateFood> {
           ..write('fatPer100g: $fatPer100g, ')
           ..write('carbsPer100g: $carbsPer100g, ')
           ..write('source: $source, ')
+          ..write('isFavorite: $isFavorite, ')
           ..write('createdAt: $createdAt')
           ..write(')'))
         .toString();
@@ -419,6 +457,7 @@ class PrivateFood extends DataClass implements Insertable<PrivateFood> {
     fatPer100g,
     carbsPer100g,
     source,
+    isFavorite,
     createdAt,
   );
   @override
@@ -433,6 +472,7 @@ class PrivateFood extends DataClass implements Insertable<PrivateFood> {
           other.fatPer100g == this.fatPer100g &&
           other.carbsPer100g == this.carbsPer100g &&
           other.source == this.source &&
+          other.isFavorite == this.isFavorite &&
           other.createdAt == this.createdAt);
 }
 
@@ -445,6 +485,7 @@ class PrivateFoodsCompanion extends UpdateCompanion<PrivateFood> {
   final Value<double> fatPer100g;
   final Value<double> carbsPer100g;
   final Value<FoodSourceType> source;
+  final Value<bool> isFavorite;
   final Value<DateTime> createdAt;
   const PrivateFoodsCompanion({
     this.id = const Value.absent(),
@@ -455,6 +496,7 @@ class PrivateFoodsCompanion extends UpdateCompanion<PrivateFood> {
     this.fatPer100g = const Value.absent(),
     this.carbsPer100g = const Value.absent(),
     this.source = const Value.absent(),
+    this.isFavorite = const Value.absent(),
     this.createdAt = const Value.absent(),
   });
   PrivateFoodsCompanion.insert({
@@ -466,6 +508,7 @@ class PrivateFoodsCompanion extends UpdateCompanion<PrivateFood> {
     required double fatPer100g,
     required double carbsPer100g,
     required FoodSourceType source,
+    this.isFavorite = const Value.absent(),
     required DateTime createdAt,
   }) : name = Value(name),
        kcalPer100g = Value(kcalPer100g),
@@ -483,6 +526,7 @@ class PrivateFoodsCompanion extends UpdateCompanion<PrivateFood> {
     Expression<double>? fatPer100g,
     Expression<double>? carbsPer100g,
     Expression<int>? source,
+    Expression<bool>? isFavorite,
     Expression<DateTime>? createdAt,
   }) {
     return RawValuesInsertable({
@@ -494,6 +538,7 @@ class PrivateFoodsCompanion extends UpdateCompanion<PrivateFood> {
       if (fatPer100g != null) 'fat_per100g': fatPer100g,
       if (carbsPer100g != null) 'carbs_per100g': carbsPer100g,
       if (source != null) 'source': source,
+      if (isFavorite != null) 'is_favorite': isFavorite,
       if (createdAt != null) 'created_at': createdAt,
     });
   }
@@ -507,6 +552,7 @@ class PrivateFoodsCompanion extends UpdateCompanion<PrivateFood> {
     Value<double>? fatPer100g,
     Value<double>? carbsPer100g,
     Value<FoodSourceType>? source,
+    Value<bool>? isFavorite,
     Value<DateTime>? createdAt,
   }) {
     return PrivateFoodsCompanion(
@@ -518,6 +564,7 @@ class PrivateFoodsCompanion extends UpdateCompanion<PrivateFood> {
       fatPer100g: fatPer100g ?? this.fatPer100g,
       carbsPer100g: carbsPer100g ?? this.carbsPer100g,
       source: source ?? this.source,
+      isFavorite: isFavorite ?? this.isFavorite,
       createdAt: createdAt ?? this.createdAt,
     );
   }
@@ -551,6 +598,9 @@ class PrivateFoodsCompanion extends UpdateCompanion<PrivateFood> {
         $PrivateFoodsTable.$convertersource.toSql(source.value),
       );
     }
+    if (isFavorite.present) {
+      map['is_favorite'] = Variable<bool>(isFavorite.value);
+    }
     if (createdAt.present) {
       map['created_at'] = Variable<DateTime>(createdAt.value);
     }
@@ -568,6 +618,7 @@ class PrivateFoodsCompanion extends UpdateCompanion<PrivateFood> {
           ..write('fatPer100g: $fatPer100g, ')
           ..write('carbsPer100g: $carbsPer100g, ')
           ..write('source: $source, ')
+          ..write('isFavorite: $isFavorite, ')
           ..write('createdAt: $createdAt')
           ..write(')'))
         .toString();
@@ -2399,6 +2450,7 @@ typedef $$PrivateFoodsTableCreateCompanionBuilder =
       required double fatPer100g,
       required double carbsPer100g,
       required FoodSourceType source,
+      Value<bool> isFavorite,
       required DateTime createdAt,
     });
 typedef $$PrivateFoodsTableUpdateCompanionBuilder =
@@ -2411,6 +2463,7 @@ typedef $$PrivateFoodsTableUpdateCompanionBuilder =
       Value<double> fatPer100g,
       Value<double> carbsPer100g,
       Value<FoodSourceType> source,
+      Value<bool> isFavorite,
       Value<DateTime> createdAt,
     });
 
@@ -2485,6 +2538,11 @@ class $$PrivateFoodsTableFilterComposer
   get source => $composableBuilder(
     column: $table.source,
     builder: (column) => ColumnWithTypeConverterFilters(column),
+  );
+
+  ColumnFilters<bool> get isFavorite => $composableBuilder(
+    column: $table.isFavorite,
+    builder: (column) => ColumnFilters(column),
   );
 
   ColumnFilters<DateTime> get createdAt => $composableBuilder(
@@ -2567,6 +2625,11 @@ class $$PrivateFoodsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<bool> get isFavorite => $composableBuilder(
+    column: $table.isFavorite,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<DateTime> get createdAt => $composableBuilder(
     column: $table.createdAt,
     builder: (column) => ColumnOrderings(column),
@@ -2613,6 +2676,11 @@ class $$PrivateFoodsTableAnnotationComposer
 
   GeneratedColumnWithTypeConverter<FoodSourceType, int> get source =>
       $composableBuilder(column: $table.source, builder: (column) => column);
+
+  GeneratedColumn<bool> get isFavorite => $composableBuilder(
+    column: $table.isFavorite,
+    builder: (column) => column,
+  );
 
   GeneratedColumn<DateTime> get createdAt =>
       $composableBuilder(column: $table.createdAt, builder: (column) => column);
@@ -2679,6 +2747,7 @@ class $$PrivateFoodsTableTableManager
                 Value<double> fatPer100g = const Value.absent(),
                 Value<double> carbsPer100g = const Value.absent(),
                 Value<FoodSourceType> source = const Value.absent(),
+                Value<bool> isFavorite = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
               }) => PrivateFoodsCompanion(
                 id: id,
@@ -2689,6 +2758,7 @@ class $$PrivateFoodsTableTableManager
                 fatPer100g: fatPer100g,
                 carbsPer100g: carbsPer100g,
                 source: source,
+                isFavorite: isFavorite,
                 createdAt: createdAt,
               ),
           createCompanionCallback:
@@ -2701,6 +2771,7 @@ class $$PrivateFoodsTableTableManager
                 required double fatPer100g,
                 required double carbsPer100g,
                 required FoodSourceType source,
+                Value<bool> isFavorite = const Value.absent(),
                 required DateTime createdAt,
               }) => PrivateFoodsCompanion.insert(
                 id: id,
@@ -2711,6 +2782,7 @@ class $$PrivateFoodsTableTableManager
                 fatPer100g: fatPer100g,
                 carbsPer100g: carbsPer100g,
                 source: source,
+                isFavorite: isFavorite,
                 createdAt: createdAt,
               ),
           withReferenceMapper: (p0) => p0

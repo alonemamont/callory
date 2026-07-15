@@ -14,6 +14,7 @@ class FoodRepository implements FoodSource {
     required double fatPer100g,
     required double carbsPer100g,
     required FoodSourceType source,
+    bool isFavorite = false,
   }) {
     return db.into(db.privateFoods).insert(PrivateFoodsCompanion.insert(
           name: name,
@@ -23,6 +24,7 @@ class FoodRepository implements FoodSource {
           fatPer100g: fatPer100g,
           carbsPer100g: carbsPer100g,
           source: source,
+          isFavorite: Value(isFavorite),
           createdAt: DateTime.now(),
         ));
   }
@@ -51,9 +53,27 @@ class FoodRepository implements FoodSource {
   Future<void> deleteFood(int id) =>
       (db.delete(db.privateFoods)..where((f) => f.id.equals(id))).go();
 
+  Future<void> setFavorite(int id, bool value) {
+    return (db.update(db.privateFoods)..where((f) => f.id.equals(id))).write(
+      PrivateFoodsCompanion(isFavorite: Value(value)),
+    );
+  }
+
+  Future<void> toggleFavorite(int id) async {
+    final food = await (db.select(db.privateFoods)
+          ..where((f) => f.id.equals(id)))
+        .getSingle();
+    await setFavorite(id, !food.isFavorite);
+  }
+
   Future<FoodResult?> findByBarcode(String barcode) async {
     final row = await (db.select(db.privateFoods)
-          ..where((f) => f.barcode.equals(barcode)))
+          ..where((f) => f.barcode.equals(barcode))
+          ..orderBy([
+            (f) => OrderingTerm.desc(f.isFavorite),
+            (f) => OrderingTerm.asc(f.id),
+          ])
+          ..limit(1))
         .getSingleOrNull();
     return row == null ? null : _toResult(row);
   }
@@ -70,6 +90,48 @@ class FoodRepository implements FoodSource {
     return rows.map(_toResult).toList();
   }
 
+  Future<List<FoodResult>> getRecentFoods({required bool favoritesOnly}) async {
+    final whereFavorite = favoritesOnly ? 'WHERE pf.is_favorite = 1' : '';
+    final rows = await db.customSelect(
+      '''
+      SELECT
+        pf.id,
+        pf.name,
+        pf.barcode,
+        pf.kcal_per100g,
+        pf.protein_per100g,
+        pf.fat_per100g,
+        pf.carbs_per100g,
+        pf.is_favorite
+      FROM private_foods pf
+      INNER JOIN (
+        SELECT private_food_id, MAX(occurred_at) AS last_used_at
+        FROM diary_entries
+        WHERE private_food_id IS NOT NULL
+        GROUP BY private_food_id
+      ) recent ON recent.private_food_id = pf.id
+      $whereFavorite
+      ORDER BY recent.last_used_at DESC, pf.name ASC, pf.id DESC
+      ''',
+      readsFrom: {db.privateFoods, db.diaryEntries},
+    ).get();
+
+    return rows
+        .map(
+          (row) => FoodResult(
+            name: row.read<String>('name'),
+            barcode: row.read<String?>('barcode'),
+            kcalPer100g: row.read<double>('kcal_per100g'),
+            proteinPer100g: row.read<double>('protein_per100g'),
+            fatPer100g: row.read<double>('fat_per100g'),
+            carbsPer100g: row.read<double>('carbs_per100g'),
+            existingPrivateFoodId: row.read<int>('id'),
+            isFavorite: row.read<bool>('is_favorite'),
+          ),
+        )
+        .toList();
+  }
+
   FoodResult _toResult(PrivateFood row) => FoodResult(
         name: row.name,
         barcode: row.barcode,
@@ -78,5 +140,6 @@ class FoodRepository implements FoodSource {
         fatPer100g: row.fatPer100g,
         carbsPer100g: row.carbsPer100g,
         existingPrivateFoodId: row.id,
+        isFavorite: row.isFavorite,
       );
 }
