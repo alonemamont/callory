@@ -26,7 +26,7 @@ class GoalsRepository {
     });
   }
 
-  Future<void> setCalculatedGoals(BmrInput input) async {
+  Future<MacroGoals> setCalculatedGoals(BmrInput input) async {
     final result = calculateGoals(input);
     await db.transaction(() async {
       await db.delete(db.goals).go();
@@ -44,5 +44,6 @@ class GoalsRepository {
             goalType: Value(input.goalType.name),
           ));
     });
+    return result;
   }
 }
