@@ -272,6 +272,7 @@ class _BarcodeTabState extends ConsumerState<_BarcodeTab> {
         final barcode = capture.barcodes.firstOrNull?.rawValue;
         if (barcode == null) return;
         _handlingDetection = true;
+        try {
         final result = await ref.read(foodLookupServiceProvider).lookupBarcode(
               barcode,
             );
@@ -291,7 +292,9 @@ class _BarcodeTabState extends ConsumerState<_BarcodeTab> {
           initial: result,
           barcode: barcode,
         );
-        _handlingDetection = false;
+        } finally {
+          _handlingDetection = false;
+        }
       },
     );
   }
