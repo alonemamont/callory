@@ -19,7 +19,7 @@ class _AddFoodScreenState extends ConsumerState<AddFoodScreen> with SingleTicker
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: 4, vsync: this);
   }
 
   @override
@@ -36,6 +36,7 @@ class _AddFoodScreenState extends ConsumerState<AddFoodScreen> with SingleTicker
         bottom: TabBar(
           controller: _tabController,
           tabs: const [
+            Tab(text: 'Recent'),
             Tab(text: 'Search'),
             Tab(text: 'Barcode'),
             Tab(text: 'Manual'),
@@ -45,6 +46,7 @@ class _AddFoodScreenState extends ConsumerState<AddFoodScreen> with SingleTicker
       body: TabBarView(
         controller: _tabController,
         children: const [
+          _RecentTab(),
           _SearchTab(),
           _BarcodeTab(),
           _ManualTab(),
@@ -61,6 +63,95 @@ class _SearchTab extends ConsumerStatefulWidget {
   ConsumerState<_SearchTab> createState() => _SearchTabState();
 }
 
+class _RecentTab extends ConsumerStatefulWidget {
+  const _RecentTab();
+
+  @override
+  ConsumerState<_RecentTab> createState() => _RecentTabState();
+}
+
+class _RecentTabState extends ConsumerState<_RecentTab> {
+  var _favoritesOnly = false;
+
+  Future<void> _toggleFavorite(FoodResult result) async {
+    await ref.read(foodRepositoryProvider).setFavorite(
+          result.existingPrivateFoodId!,
+          !result.isFavorite,
+        );
+    if (mounted) {
+      setState(() {});
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<List<FoodResult>>(
+      future: ref.read(foodRepositoryProvider).getRecentFoods(
+            favoritesOnly: _favoritesOnly,
+          ),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        final results = snapshot.data ?? const <FoodResult>[];
+        final isFilteredEmpty = _favoritesOnly && results.isEmpty;
+
+        return Column(
+          children: [
+            SwitchListTile(
+              title: const Text('Only favorites'),
+              value: _favoritesOnly,
+              onChanged: (value) => setState(() => _favoritesOnly = value),
+            ),
+            if (results.isEmpty)
+              Expanded(
+                child: Center(
+                  child: Text(
+                    isFilteredEmpty
+                        ? 'No favorite recent foods yet'
+                        : 'No recent foods yet',
+                  ),
+                ),
+              )
+            else
+              Expanded(
+                child: ListView.builder(
+                  itemCount: results.length,
+                  itemBuilder: (context, index) {
+                    final result = results[index];
+                    return ListTile(
+                      title: Text(result.name),
+                      subtitle: Text(
+                        '${result.kcalPer100g.round()} kcal / 100g',
+                      ),
+                      trailing: IconButton(
+                        icon: Icon(
+                          result.isFavorite ? Icons.star : Icons.star_border,
+                        ),
+                        onPressed: () => _toggleFavorite(result),
+                      ),
+                      onTap: () async {
+                        await showEditableFoodDialog(
+                          context: context,
+                          ref: ref,
+                          initial: result,
+                        );
+                        if (mounted) {
+                          setState(() {});
+                        }
+                      },
+                    );
+                  },
+                ),
+              ),
+          ],
+        );
+      },
+    );
+  }
+}
+
 class _SearchTabState extends ConsumerState<_SearchTab> {
   final _controller = TextEditingController();
   List<FoodResult> _results = [];
@@ -72,6 +163,52 @@ class _SearchTabState extends ConsumerState<_SearchTab> {
     }
     final results = await ref.read(foodLookupServiceProvider).search(query);
     setState(() => _results = results);
+  }
+
+  Future<void> _toggleFavorite(FoodResult result) async {
+    final repo = ref.read(foodRepositoryProvider);
+    try {
+      if (result.existingPrivateFoodId != null) {
+        await repo.setFavorite(
+          result.existingPrivateFoodId!,
+          !result.isFavorite,
+        );
+      } else if (result.barcode != null) {
+        final existing = await repo.findByBarcode(result.barcode!);
+        if (existing != null) {
+          await repo.setFavorite(existing.existingPrivateFoodId!, true);
+        } else {
+          await repo.insertFood(
+            name: result.name,
+            barcode: result.barcode,
+            kcalPer100g: result.kcalPer100g,
+            proteinPer100g: result.proteinPer100g,
+            fatPer100g: result.fatPer100g,
+            carbsPer100g: result.carbsPer100g,
+            source: FoodSourceType.copiedExternal,
+            isFavorite: true,
+          );
+        }
+      } else {
+        await repo.insertFood(
+          name: result.name,
+          barcode: null,
+          kcalPer100g: result.kcalPer100g,
+          proteinPer100g: result.proteinPer100g,
+          fatPer100g: result.fatPer100g,
+          carbsPer100g: result.carbsPer100g,
+          source: FoodSourceType.copiedExternal,
+          isFavorite: true,
+        );
+      }
+
+      await _search(_controller.text);
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not update favorite')),
+      );
+    }
   }
 
   @override
@@ -97,6 +234,12 @@ class _SearchTabState extends ConsumerState<_SearchTab> {
                   '${result.kcalPer100g.round()} kcal / 100g'
                   '${result.existingPrivateFoodId == null ? '' : ' (in your foods)'}',
                 ),
+                trailing: IconButton(
+                  icon: Icon(
+                    result.isFavorite ? Icons.star : Icons.star_border,
+                  ),
+                  onPressed: () => _toggleFavorite(result),
+                ),
                 onTap: () => _openGramsDialog(context, result),
               );
             },
@@ -111,17 +254,31 @@ class _SearchTabState extends ConsumerState<_SearchTab> {
   }
 }
 
-class _BarcodeTab extends ConsumerWidget {
+class _BarcodeTab extends ConsumerStatefulWidget {
   const _BarcodeTab();
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_BarcodeTab> createState() => _BarcodeTabState();
+}
+
+class _BarcodeTabState extends ConsumerState<_BarcodeTab> {
+  var _handlingDetection = false;
+
+  @override
+  Widget build(BuildContext context) {
     return MobileScanner(
       onDetect: (capture) async {
+        if (_handlingDetection) return;
         final barcode = capture.barcodes.firstOrNull?.rawValue;
         if (barcode == null) return;
-        final result = await ref.read(foodLookupServiceProvider).lookupBarcode(barcode);
-        if (!context.mounted) return;
+        _handlingDetection = true;
+        final result = await ref.read(foodLookupServiceProvider).lookupBarcode(
+              barcode,
+            );
+        if (!context.mounted) {
+          _handlingDetection = false;
+          return;
+        }
         if (result == null) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Product not found — enter it manually')),
@@ -134,6 +291,7 @@ class _BarcodeTab extends ConsumerWidget {
           initial: result,
           barcode: barcode,
         );
+        _handlingDetection = false;
       },
     );
   }

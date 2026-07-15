@@ -252,4 +252,146 @@ void main() {
     expect(foods.single.isFavorite, true);
     expect(entries, hasLength(1));
   });
+
+  testWidgets('initial tab is Recent and tab order is Recent Search Barcode Manual', (tester) async {
+    await pumpAddFoodScreen(tester, db: db);
+
+    expect(find.text('Recent'), findsOneWidget);
+    expect(find.text('Search'), findsOneWidget);
+    expect(find.text('Barcode'), findsOneWidget);
+    expect(find.text('Manual'), findsOneWidget);
+    expect(find.text('Only favorites'), findsOneWidget);
+  });
+
+  testWidgets('empty recent state renders correctly', (tester) async {
+    await pumpAddFoodScreen(tester, db: db);
+    expect(find.text('No recent foods yet'), findsOneWidget);
+  });
+
+  testWidgets('favorites-only empty state renders correctly', (tester) async {
+    await seedUsedFood(db, name: 'Used Non Favorite', isFavorite: false);
+    await pumpAddFoodScreen(tester, db: db);
+
+    await tester.tap(find.byType(SwitchListTile));
+    await tester.pumpAndSettle();
+
+    expect(find.text('No favorite recent foods yet'), findsOneWidget);
+  });
+
+  testWidgets('recent favorite toggle updates the row immediately', (tester) async {
+    final id = await seedUsedFood(db, name: 'Recent Oats', isFavorite: false);
+    await pumpAddFoodScreen(tester, db: db);
+
+    await tester.tap(find.byIcon(Icons.star_border).last);
+    await tester.pumpAndSettle();
+
+    final foods = await db.select(db.privateFoods).get();
+    expect(foods.singleWhere((f) => f.id == id).isFavorite, true);
+    expect(find.byIcon(Icons.star), findsOneWidget);
+  });
+
+  testWidgets('tapping a recent row opens the existing dialog', (tester) async {
+    await seedUsedFood(db, name: 'Recent Rice', isFavorite: true);
+    await pumpAddFoodScreen(tester, db: db);
+
+    await tester.tap(find.text('Recent Rice'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Food details'), findsOneWidget);
+  });
+
+  testWidgets('local search result favorite toggle does not open dialog', (tester) async {
+    await seedPrivateFood(
+      db,
+      name: 'Local Yogurt',
+      barcode: '111',
+      isFavorite: false,
+    );
+    await pumpAddFoodScreen(tester, db: db);
+
+    await tester.tap(find.text('Search'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.widgetWithText(TextField, 'Search foods'), 'Yogurt');
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.star_border).last);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Food details'), findsNothing);
+    expect((await db.select(db.privateFoods).get()).single.isFavorite, true);
+  });
+
+  testWidgets('external search favorite creates one local row and no diary entry', (tester) async {
+    await pumpAddFoodScreen(
+      tester,
+      db: db,
+      externalSource: _FakeFoodSource(
+        searchResults: const [
+          FoodResult(
+            name: 'External Bar',
+            barcode: '999',
+            kcalPer100g: 200,
+            proteinPer100g: 20,
+            fatPer100g: 8,
+            carbsPer100g: 15,
+          ),
+        ],
+      ),
+    );
+
+    await tester.tap(find.text('Search'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.widgetWithText(TextField, 'Search foods'), 'Bar');
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.star_border));
+    await tester.pumpAndSettle();
+
+    final foods = await db.select(db.privateFoods).get();
+    final entries = await db.select(db.diaryEntries).get();
+    expect(foods, hasLength(1));
+    expect(foods.single.barcode, '999');
+    expect(foods.single.isFavorite, true);
+    expect(entries, isEmpty);
+  });
+
+  testWidgets('favoriting an external result with an existing local barcode updates instead of duplicating', (tester) async {
+    final existingId = await seedPrivateFood(
+      db,
+      name: 'Local Bar',
+      barcode: '222',
+      isFavorite: false,
+    );
+    await pumpAddFoodScreen(
+      tester,
+      db: db,
+      externalSource: _FakeFoodSource(
+        searchResults: const [
+          FoodResult(
+            name: 'External Bar',
+            barcode: '222',
+            kcalPer100g: 210,
+            proteinPer100g: 21,
+            fatPer100g: 9,
+            carbsPer100g: 16,
+          ),
+        ],
+      ),
+    );
+
+    await tester.tap(find.text('Search'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.widgetWithText(TextField, 'Search foods'), 'Bar');
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byIcon(Icons.star_border).last);
+    await tester.pumpAndSettle();
+
+    final foods = await db.select(db.privateFoods).get();
+    expect(foods, hasLength(1));
+    expect(foods.single.id, existingId);
+    expect(foods.single.isFavorite, true);
+  });
 }
