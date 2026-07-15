@@ -6,6 +6,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:callory/db/database.dart';
 import 'package:callory/data/settings_service.dart';
 import 'package:callory/data/diary_repository.dart';
+import 'package:callory/data/goals_repository.dart';
+import 'package:callory/domain/bmr_calculator.dart';
 import 'package:callory/providers/providers.dart';
 import 'package:callory/ui/day/day_screen.dart';
 
@@ -58,6 +60,35 @@ void main() {
 
     expect(find.textContaining('Test Meal Item'), findsOneWidget);
     expect(find.textContaining('Прием 1'), findsOneWidget);
+
+    await db.close();
+  });
+
+  testWidgets('shows calculated goal progress even with no meals logged yet', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+    final db = AppDatabase.forTesting(NativeDatabase.memory());
+    final goalsRepo = GoalsRepository(db);
+    await goalsRepo.setCalculatedGoals(const BmrInput(
+      sex: Sex.male,
+      age: 30,
+      weightKg: 80,
+      heightCm: 180,
+      activityLevel: ActivityLevel.moderate,
+      goalType: GoalType.maintain,
+    ));
+
+    await tester.pumpWidget(ProviderScope(
+      overrides: [
+        databaseProvider.overrideWithValue(db),
+        settingsServiceProvider.overrideWithValue(SettingsService(prefs)),
+      ],
+      child: const MaterialApp(home: DayScreen()),
+    ));
+    await tester.pumpAndSettle();
+
+    expect(find.text('No meals logged yet'), findsOneWidget);
+    expect(find.text('Kcal'), findsOneWidget);
 
     await db.close();
   });
