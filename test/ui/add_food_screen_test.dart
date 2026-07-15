@@ -395,7 +395,13 @@ void main() {
     expect(foods.single.isFavorite, true);
   });
 
-  testWidgets('search shows local favorite state for an external barcode match', (tester) async {
+  testWidgets('search shows canonical local favorite state for an external barcode match', (tester) async {
+    await seedPrivateFood(
+      db,
+      name: 'Older Duplicate',
+      barcode: '222',
+      isFavorite: false,
+    );
     await seedPrivateFood(
       db,
       name: 'Local Match',
@@ -462,14 +468,14 @@ void main() {
     expect(entries.single.privateFoodId, existingId);
   });
 
-  testWidgets('saving an external dialog result with duplicate local barcodes does not crash', (tester) async {
-    final firstId = await seedPrivateFood(
+  testWidgets('saving an external dialog result with duplicate local barcodes reuses the canonical favorite row', (tester) async {
+    await seedPrivateFood(
       db,
       name: 'First Duplicate',
       barcode: '444',
       isFavorite: false,
     );
-    await seedPrivateFood(
+    final favoriteId = await seedPrivateFood(
       db,
       name: 'Second Duplicate',
       barcode: '444',
@@ -494,9 +500,11 @@ void main() {
       ..sort((a, b) => a.id.compareTo(b.id));
     final entries = await db.select(db.diaryEntries).get();
     expect(foods, hasLength(2));
-    expect(foods.first.id, firstId);
-    expect(foods.first.name, 'External Duplicate');
+    expect(
+      foods.singleWhere((food) => food.id == favoriteId).name,
+      'External Duplicate',
+    );
     expect(entries, hasLength(1));
-    expect(entries.single.privateFoodId, firstId);
+    expect(entries.single.privateFoodId, favoriteId);
   });
 }

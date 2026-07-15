@@ -55,8 +55,8 @@ void main() {
     expect(bySearch.single.isFavorite, true);
   });
 
-  test('findByBarcode tolerates duplicate local rows and returns the earliest match', () async {
-    final firstId = await repo.insertFood(
+  test('findByBarcode prefers favorite rows when duplicate local barcodes exist', () async {
+    await repo.insertFood(
       name: 'First Duplicate',
       barcode: 'dup-1',
       kcalPer100g: 60,
@@ -65,7 +65,7 @@ void main() {
       carbsPer100g: 7,
       source: FoodSourceType.barcode,
     );
-    await repo.insertFood(
+    final favoriteId = await repo.insertFood(
       name: 'Second Duplicate',
       barcode: 'dup-1',
       kcalPer100g: 80,
@@ -73,13 +73,15 @@ void main() {
       fatPer100g: 3,
       carbsPer100g: 8,
       source: FoodSourceType.barcode,
+      isFavorite: true,
     );
 
     final result = await repo.findByBarcode('dup-1');
 
     expect(result, isNotNull);
-    expect(result!.existingPrivateFoodId, firstId);
-    expect(result.name, 'First Duplicate');
+    expect(result!.existingPrivateFoodId, favoriteId);
+    expect(result.name, 'Second Duplicate');
+    expect(result.isFavorite, true);
   });
 
   test('insertFood defaults isFavorite to false and persists explicit true', () async {
