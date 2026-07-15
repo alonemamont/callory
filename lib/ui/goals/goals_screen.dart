@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:callory/db/database.dart';
 import 'package:callory/domain/bmr_calculator.dart';
 import 'package:callory/providers/providers.dart';
+import 'package:callory/ui/widgets/number_field.dart';
 
 enum _Mode { manual, calculated }
 
@@ -14,6 +16,7 @@ class GoalsScreen extends ConsumerStatefulWidget {
 
 class _GoalsScreenState extends ConsumerState<GoalsScreen> {
   _Mode _mode = _Mode.manual;
+  bool _loading = true;
 
   final _kcalController = TextEditingController();
   final _proteinController = TextEditingController();
@@ -27,6 +30,42 @@ class _GoalsScreenState extends ConsumerState<GoalsScreen> {
   ActivityLevel _activityLevel = ActivityLevel.sedentary;
   GoalType _goalType = GoalType.maintain;
 
+  @override
+  void initState() {
+    super.initState();
+    _loadExistingGoals();
+  }
+
+  Future<void> _loadExistingGoals() async {
+    final goals = await ref.read(goalsRepositoryProvider).getGoals();
+    if (!mounted) return;
+    if (goals == null) {
+      setState(() => _loading = false);
+      return;
+    }
+    setState(() {
+      _mode = goals.mode == GoalsMode.calculated ? _Mode.calculated : _Mode.manual;
+      _kcalController.text = _formatNumber(goals.dailyKcal);
+      _proteinController.text = _formatNumber(goals.dailyProtein);
+      _fatController.text = _formatNumber(goals.dailyFat);
+      _carbsController.text = _formatNumber(goals.dailyCarbs);
+      if (goals.age != null) _ageController.text = goals.age.toString();
+      if (goals.weightKg != null) _weightController.text = _formatNumber(goals.weightKg!);
+      if (goals.heightCm != null) _heightController.text = _formatNumber(goals.heightCm!);
+      if (goals.sex != null) _sex = Sex.values.byName(goals.sex!);
+      if (goals.activityLevel != null) {
+        _activityLevel = ActivityLevel.values.byName(goals.activityLevel!);
+      }
+      if (goals.goalType != null) _goalType = GoalType.values.byName(goals.goalType!);
+      _loading = false;
+    });
+  }
+
+  String _formatNumber(double value) {
+    if (value == value.roundToDouble()) return value.round().toString();
+    return value.toStringAsFixed(1);
+  }
+
   Future<void> _save() async {
     final goalsRepo = ref.read(goalsRepositoryProvider);
     if (_mode == _Mode.manual) {
@@ -37,7 +76,7 @@ class _GoalsScreenState extends ConsumerState<GoalsScreen> {
         dailyCarbs: double.tryParse(_carbsController.text) ?? 0,
       );
     } else {
-      await goalsRepo.setCalculatedGoals(BmrInput(
+      final result = await goalsRepo.setCalculatedGoals(BmrInput(
         sex: _sex,
         age: int.tryParse(_ageController.text) ?? 0,
         weightKg: double.tryParse(_weightController.text) ?? 0,
@@ -45,12 +84,27 @@ class _GoalsScreenState extends ConsumerState<GoalsScreen> {
         activityLevel: _activityLevel,
         goalType: _goalType,
       ));
+      if (!mounted) return;
+      // Populate the manual fields with the computed numbers so switching to
+      // Manual immediately shows an editable starting point (per spec: an
+      // override afterward switches the stored record to manual mode).
+      setState(() {
+        _kcalController.text = _formatNumber(result.kcal);
+        _proteinController.text = _formatNumber(result.proteinG);
+        _fatController.text = _formatNumber(result.fatG);
+        _carbsController.text = _formatNumber(result.carbsG);
+      });
     }
-    if (mounted) Navigator.of(context).maybePop();
   }
 
   @override
   Widget build(BuildContext context) {
+    if (_loading) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Goals')),
+        body: const Center(child: CircularProgressIndicator()),
+      );
+    }
     return Scaffold(
       appBar: AppBar(title: const Text('Goals')),
       body: ListView(
@@ -66,47 +120,47 @@ class _GoalsScreenState extends ConsumerState<GoalsScreen> {
           ),
           const SizedBox(height: 16),
           if (_mode == _Mode.manual) ...[
-            TextField(
-              key: const Key('manualKcalField'),
+            NumberField(
+              fieldKey: const Key('manualKcalField'),
               controller: _kcalController,
-              decoration: const InputDecoration(labelText: 'Daily kcal'),
-              keyboardType: TextInputType.number,
+              labelText: 'Daily kcal',
             ),
-            TextField(
+            NumberField(
+              fieldKey: const Key('manualProteinField'),
               controller: _proteinController,
-              decoration: const InputDecoration(labelText: 'Protein (g)'),
-              keyboardType: TextInputType.number,
+              labelText: 'Protein (g)',
             ),
-            TextField(
+            NumberField(
+              fieldKey: const Key('manualFatField'),
               controller: _fatController,
-              decoration: const InputDecoration(labelText: 'Fat (g)'),
-              keyboardType: TextInputType.number,
+              labelText: 'Fat (g)',
             ),
-            TextField(
+            NumberField(
+              fieldKey: const Key('manualCarbsField'),
               controller: _carbsController,
-              decoration: const InputDecoration(labelText: 'Carbs (g)'),
-              keyboardType: TextInputType.number,
+              labelText: 'Carbs (g)',
             ),
           ] else ...[
             DropdownButton<Sex>(
+              key: const Key('calcSexField'),
               value: _sex,
               items: Sex.values.map((s) => DropdownMenuItem(value: s, child: Text(s.name))).toList(),
               onChanged: (value) => setState(() => _sex = value!),
             ),
-            TextField(
+            NumberField(
+              fieldKey: const Key('calcAgeField'),
               controller: _ageController,
-              decoration: const InputDecoration(labelText: 'Age'),
-              keyboardType: TextInputType.number,
+              labelText: 'Age',
             ),
-            TextField(
+            NumberField(
+              fieldKey: const Key('calcWeightField'),
               controller: _weightController,
-              decoration: const InputDecoration(labelText: 'Weight (kg)'),
-              keyboardType: TextInputType.number,
+              labelText: 'Weight (kg)',
             ),
-            TextField(
+            NumberField(
+              fieldKey: const Key('calcHeightField'),
               controller: _heightController,
-              decoration: const InputDecoration(labelText: 'Height (cm)'),
-              keyboardType: TextInputType.number,
+              labelText: 'Height (cm)',
             ),
             DropdownButton<ActivityLevel>(
               value: _activityLevel,

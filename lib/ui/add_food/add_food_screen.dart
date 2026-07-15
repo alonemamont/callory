@@ -4,6 +4,7 @@ import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:callory/db/database.dart';
 import 'package:callory/domain/food_source.dart';
 import 'package:callory/providers/providers.dart';
+import 'package:callory/ui/widgets/number_field.dart';
 
 class AddFoodScreen extends ConsumerStatefulWidget {
   const AddFoodScreen({super.key});
@@ -197,11 +198,11 @@ Future<bool> showEditableFoodDialog({
           mainAxisSize: MainAxisSize.min,
           children: [
             TextField(controller: nameController, decoration: const InputDecoration(labelText: 'Name')),
-            TextField(controller: kcalController, decoration: const InputDecoration(labelText: 'Kcal / 100g'), keyboardType: TextInputType.number),
-            TextField(controller: proteinController, decoration: const InputDecoration(labelText: 'Protein / 100g'), keyboardType: TextInputType.number),
-            TextField(controller: fatController, decoration: const InputDecoration(labelText: 'Fat / 100g'), keyboardType: TextInputType.number),
-            TextField(controller: carbsController, decoration: const InputDecoration(labelText: 'Carbs / 100g'), keyboardType: TextInputType.number),
-            TextField(controller: gramsController, decoration: const InputDecoration(labelText: 'Grams eaten'), keyboardType: TextInputType.number),
+            NumberField(controller: kcalController, labelText: 'Kcal / 100g'),
+            NumberField(controller: proteinController, labelText: 'Protein / 100g'),
+            NumberField(controller: fatController, labelText: 'Fat / 100g'),
+            NumberField(controller: carbsController, labelText: 'Carbs / 100g'),
+            NumberField(controller: gramsController, labelText: 'Grams eaten'),
           ],
         ),
       ),

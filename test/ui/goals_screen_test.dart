@@ -29,7 +29,7 @@ void main() {
     await db.close();
   });
 
-  testWidgets('calculated mode saves a BMR-derived goal', (tester) async {
+  testWidgets('calculated mode computes goals on save and fills the manual fields for override', (tester) async {
     final db = AppDatabase.forTesting(NativeDatabase.memory());
 
     await tester.pumpWidget(ProviderScope(
@@ -41,9 +41,11 @@ void main() {
     await tester.tap(find.text('Calculated'));
     await tester.pumpAndSettle();
 
-    await tester.enterText(find.widgetWithText(TextField, 'Age'), '30');
-    await tester.enterText(find.widgetWithText(TextField, 'Weight (kg)'), '80');
-    await tester.enterText(find.widgetWithText(TextField, 'Height (cm)'), '180');
+    await tester.enterText(find.byKey(const Key('calcAgeField')), '30');
+    await tester.enterText(find.byKey(const Key('calcWeightField')), '80');
+    await tester.enterText(find.byKey(const Key('calcHeightField')), '180');
+    // sex=male, activity=sedentary, goal=maintain are the defaults.
+
     await tester.tap(find.byKey(const Key('saveGoalsButton')));
     await tester.pumpAndSettle();
 
@@ -55,6 +57,16 @@ void main() {
     expect(goals.dailyKcal, closeTo(2136, 0.01));
     expect(goals.dailyProtein, closeTo(160.2, 0.01));
     expect(goals.dailyCarbs, closeTo(213.6, 0.01));
+
+    // Flipping to Manual within the same session should show the computed
+    // numbers as editable starting values (per spec: overriding them switches
+    // the record to manual mode).
+    await tester.tap(find.text('Manual'));
+    await tester.pumpAndSettle();
+
+    final kcalField = tester.widget<TextField>(find.byKey(const Key('manualKcalField')));
+    final kcalShown = double.parse(kcalField.controller!.text);
+    expect(kcalShown, closeTo(goals.dailyKcal, 0.5));
 
     await db.close();
   });
@@ -73,9 +85,9 @@ void main() {
     await tester.tap(find.text('Calculated'));
     await tester.pumpAndSettle();
 
-    await tester.enterText(find.widgetWithText(TextField, 'Age'), '25');
-    await tester.enterText(find.widgetWithText(TextField, 'Weight (kg)'), '60');
-    await tester.enterText(find.widgetWithText(TextField, 'Height (cm)'), '165');
+    await tester.enterText(find.byKey(const Key('calcAgeField')), '25');
+    await tester.enterText(find.byKey(const Key('calcWeightField')), '60');
+    await tester.enterText(find.byKey(const Key('calcHeightField')), '165');
     await tester.tap(find.byKey(const Key('saveGoalsButton')));
     await tester.pumpAndSettle();
 
@@ -108,6 +120,49 @@ void main() {
     expect(goals.dailyProtein, 0);
     expect(goals.dailyFat, 0);
     expect(goals.dailyCarbs, 0);
+
+    await db.close();
+  });
+
+  testWidgets('reopening Goals after saving calculated goals reloads the stored mode and values', (tester) async {
+    final db = AppDatabase.forTesting(NativeDatabase.memory());
+
+    await tester.pumpWidget(ProviderScope(
+      overrides: [databaseProvider.overrideWithValue(db)],
+      child: const MaterialApp(home: GoalsScreen()),
+    ));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Calculated'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const Key('calcAgeField')), '30');
+    await tester.enterText(find.byKey(const Key('calcWeightField')), '80');
+    await tester.enterText(find.byKey(const Key('calcHeightField')), '180');
+    await tester.tap(find.byKey(const Key('saveGoalsButton')));
+    await tester.pumpAndSettle();
+
+    final saved = await db.select(db.goals).getSingleOrNull();
+
+    // Simulate navigating away and back: the home shell in main.dart swaps
+    // the tab body by replacing the widget (not an IndexedStack), so the
+    // GoalsScreen state is disposed and rebuilt from scratch when the user
+    // returns to the tab.
+    await tester.pumpWidget(const MaterialApp(home: SizedBox()));
+    await tester.pumpAndSettle();
+    await tester.pumpWidget(ProviderScope(
+      overrides: [databaseProvider.overrideWithValue(db)],
+      child: const MaterialApp(home: GoalsScreen()),
+    ));
+    await tester.pumpAndSettle();
+
+    // Should reopen on the Calculated tab with the saved profile inputs.
+    final ageField = tester.widget<TextField>(find.byKey(const Key('calcAgeField')));
+    expect(ageField.controller!.text, '30');
+
+    await tester.tap(find.text('Manual'));
+    await tester.pumpAndSettle();
+    final kcalField = tester.widget<TextField>(find.byKey(const Key('manualKcalField')));
+    expect(double.parse(kcalField.controller!.text), closeTo(saved!.dailyKcal, 0.5));
 
     await db.close();
   });
