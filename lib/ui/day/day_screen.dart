@@ -42,24 +42,22 @@ class DayScreen extends ConsumerWidget {
           final entries = snapshot.data![1] as List<DiaryEntry>;
           final goals = snapshot.data![2] as Goal?;
 
-          if (meals.isEmpty) {
-            return const Center(child: Text('No meals logged yet'));
-          }
-
           final totals = _sumTotals(entries);
 
           return Column(
             children: [
               if (goals != null) _GoalProgress(totals: totals, goals: goals),
               Expanded(
-                child: ListView(
-                  children: meals
-                      .map((meal) => _MealSection(
-                            meal: meal,
-                            entries: entries.where((e) => e.mealId == meal.id).toList(),
-                          ))
-                      .toList(),
-                ),
+                child: meals.isEmpty
+                    ? const Center(child: Text('No meals logged yet'))
+                    : ListView(
+                        children: meals
+                            .map((meal) => _MealSection(
+                                  meal: meal,
+                                  entries: entries.where((e) => e.mealId == meal.id).toList(),
+                                ))
+                            .toList(),
+                      ),
               ),
             ],
           );
