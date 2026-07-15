@@ -155,6 +155,7 @@ class _RecentTabState extends ConsumerState<_RecentTab> {
 class _SearchTabState extends ConsumerState<_SearchTab> {
   final _controller = TextEditingController();
   List<FoodResult> _results = [];
+  var _updatingFavorite = false;
 
   Future<void> _search(String query) async {
     if (query.trim().isEmpty) {
@@ -166,7 +167,9 @@ class _SearchTabState extends ConsumerState<_SearchTab> {
   }
 
   Future<void> _toggleFavorite(FoodResult result) async {
+    if (_updatingFavorite) return;
     final repo = ref.read(foodRepositoryProvider);
+    setState(() => _updatingFavorite = true);
     try {
       if (result.existingPrivateFoodId != null) {
         await repo.setFavorite(
@@ -208,6 +211,10 @@ class _SearchTabState extends ConsumerState<_SearchTab> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Could not update favorite')),
       );
+    } finally {
+      if (mounted) {
+        setState(() => _updatingFavorite = false);
+      }
     }
   }
 
@@ -238,7 +245,9 @@ class _SearchTabState extends ConsumerState<_SearchTab> {
                   icon: Icon(
                     result.isFavorite ? Icons.star : Icons.star_border,
                   ),
-                  onPressed: () => _toggleFavorite(result),
+                  onPressed: _updatingFavorite
+                      ? null
+                      : () => _toggleFavorite(result),
                 ),
                 onTap: () => _openGramsDialog(context, result),
               );
