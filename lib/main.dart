@@ -7,6 +7,7 @@ import 'package:callory/ui/day/day_screen.dart';
 import 'package:callory/ui/add_food/add_food_screen.dart';
 import 'package:callory/ui/goals/goals_screen.dart';
 import 'package:callory/ui/settings/settings_screen.dart';
+import 'package:callory/ui/theme/theme.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -27,6 +28,8 @@ class CalloryApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Callory',
+      theme: AppTheme.dark,
+      themeMode: ThemeMode.dark,
       home: const _HomeShell(),
     );
   }
