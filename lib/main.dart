@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:callory/l10n/app_localizations.dart';
 import 'package:callory/providers/providers.dart';
 import 'package:callory/data/settings_service.dart';
 import 'package:callory/ui/day/day_screen.dart';
@@ -21,15 +22,19 @@ Future<void> main() async {
   ));
 }
 
-class CalloryApp extends StatelessWidget {
+class CalloryApp extends ConsumerWidget {
   const CalloryApp({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final locale = ref.watch(localeProvider);
     return MaterialApp(
       title: 'Callory',
       theme: AppTheme.dark,
       themeMode: ThemeMode.dark,
+      locale: locale,
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
       home: const _HomeShell(),
     );
   }
@@ -54,16 +59,17 @@ class _HomeShellState extends State<_HomeShell> {
 
   @override
   Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context)!;
     return Scaffold(
       body: _screens[_index],
       bottomNavigationBar: NavigationBar(
         selectedIndex: _index,
         onDestinationSelected: (index) => setState(() => _index = index),
-        destinations: const [
-          NavigationDestination(icon: Icon(Icons.today), label: 'Day'),
-          NavigationDestination(icon: Icon(Icons.add), label: 'Add'),
-          NavigationDestination(icon: Icon(Icons.flag), label: 'Goals'),
-          NavigationDestination(icon: Icon(Icons.settings), label: 'Settings'),
+        destinations: [
+          NavigationDestination(icon: const Icon(Icons.today), label: loc.navDay),
+          NavigationDestination(icon: const Icon(Icons.add), label: loc.navAdd),
+          NavigationDestination(icon: const Icon(Icons.flag), label: loc.navGoals),
+          NavigationDestination(icon: const Icon(Icons.settings), label: loc.navSettings),
         ],
       ),
     );
