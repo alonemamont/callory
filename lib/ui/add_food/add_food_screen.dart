@@ -1,5 +1,6 @@
 import 'package:callory/db/database.dart';
 import 'package:callory/domain/food_source.dart';
+import 'package:callory/l10n/app_localizations.dart';
 import 'package:callory/providers/providers.dart';
 import 'package:callory/ui/widgets/number_field.dart';
 import 'package:flutter/material.dart';
@@ -31,16 +32,17 @@ class _AddFoodScreenState extends ConsumerState<AddFoodScreen>
 
   @override
   Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context)!;
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Add food'),
+        title: Text(loc.addFoodTitle),
         bottom: TabBar(
           controller: _tabController,
-          tabs: const [
-            Tab(text: 'Recent'),
-            Tab(text: 'Search'),
-            Tab(text: 'Barcode'),
-            Tab(text: 'Manual'),
+          tabs: [
+            Tab(text: loc.addFoodTabRecent),
+            Tab(text: loc.addFoodTabSearch),
+            Tab(text: loc.addFoodTabBarcode),
+            Tab(text: loc.addFoodTabManual),
           ],
         ),
       ),
@@ -102,6 +104,7 @@ class _RecentTabState extends ConsumerState<_RecentTab> {
 
   @override
   Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context)!;
     return FutureBuilder<List<FoodResult>>(
       future: _recentFoods,
       builder: (context, snapshot) {
@@ -115,7 +118,7 @@ class _RecentTabState extends ConsumerState<_RecentTab> {
         return Column(
           children: [
             SwitchListTile(
-              title: const Text('Only favorites'),
+              title: Text(loc.addFoodOnlyFavorites),
               value: _favoritesOnly,
               onChanged: (value) {
                 _favoritesOnly = value;
@@ -127,8 +130,8 @@ class _RecentTabState extends ConsumerState<_RecentTab> {
                 child: Center(
                   child: Text(
                     isFilteredEmpty
-                        ? 'No favorite recent foods yet'
-                        : 'No recent foods yet',
+                        ? loc.addFoodNoFavoriteRecentFoods
+                        : loc.addFoodNoRecentFoods,
                   ),
                 ),
               )
@@ -141,7 +144,7 @@ class _RecentTabState extends ConsumerState<_RecentTab> {
                     return ListTile(
                       title: Text(result.name),
                       subtitle: Text(
-                        '${result.kcalPer100g.round()} kcal / 100g',
+                        loc.addFoodKcalPer100g(result.kcalPer100g.round()),
                       ),
                       trailing: IconButton(
                         icon: Icon(
@@ -230,8 +233,9 @@ class _SearchTabState extends ConsumerState<_SearchTab> {
       await _search(_controller.text);
     } catch (_) {
       if (!mounted) return;
+      final loc = AppLocalizations.of(context)!;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Could not update favorite')),
+        SnackBar(content: Text(loc.addFoodFavoriteUpdateFailed)),
       );
     } finally {
       if (mounted) {
@@ -242,13 +246,14 @@ class _SearchTabState extends ConsumerState<_SearchTab> {
 
   @override
   Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context)!;
     return Column(
       children: [
         Padding(
           padding: const EdgeInsets.all(12),
           child: TextField(
             controller: _controller,
-            decoration: const InputDecoration(labelText: 'Search foods'),
+            decoration: InputDecoration(labelText: loc.addFoodSearchLabel),
             onSubmitted: _search,
           ),
         ),
@@ -260,8 +265,10 @@ class _SearchTabState extends ConsumerState<_SearchTab> {
               return ListTile(
                 title: Text(result.name),
                 subtitle: Text(
-                  '${result.kcalPer100g.round()} kcal / 100g'
-                  '${result.existingPrivateFoodId == null ? '' : ' (in your foods)'}',
+                  loc.addFoodKcalPer100g(result.kcalPer100g.round()) +
+                      (result.existingPrivateFoodId == null
+                          ? ''
+                          : loc.addFoodInYourFoodsSuffix),
                 ),
                 trailing: IconButton(
                   icon: Icon(
@@ -317,9 +324,10 @@ class _BarcodeTabState extends ConsumerState<_BarcodeTab> {
               .lookupBarcode(barcode);
           if (!context.mounted) return;
           if (result == null) {
+            final loc = AppLocalizations.of(context)!;
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Product not found — enter it manually'),
+              SnackBar(
+                content: Text(loc.addFoodBarcodeNotFound),
               ),
             );
             return;
@@ -343,6 +351,7 @@ class _ManualTab extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final loc = AppLocalizations.of(context)!;
     return Center(
       child: ElevatedButton(
         onPressed: () async {
@@ -358,12 +367,12 @@ class _ManualTab extends ConsumerWidget {
             ),
           );
           if (saved && context.mounted) {
-            ScaffoldMessenger.of(
-              context,
-            ).showSnackBar(const SnackBar(content: Text('Food saved')));
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(loc.addFoodSavedMessage)),
+            );
           }
         },
-        child: const Text('Add food manually'),
+        child: Text(loc.addFoodAddManuallyButton),
       ),
     );
   }
@@ -375,6 +384,7 @@ Future<bool> showEditableFoodDialog({
   required FoodResult initial,
   String? barcode,
 }) async {
+  final loc = AppLocalizations.of(context)!;
   final nameController = TextEditingController(text: initial.name);
   final kcalController = TextEditingController(
     text: initial.kcalPer100g.toString(),
@@ -396,33 +406,33 @@ Future<bool> showEditableFoodDialog({
     context: context,
     builder: (context) => StatefulBuilder(
       builder: (context, setState) => AlertDialog(
-        title: const Text('Food details'),
+        title: Text(loc.addFoodDialogTitle),
         content: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               TextField(
                 controller: nameController,
-                decoration: const InputDecoration(labelText: 'Name'),
+                decoration: InputDecoration(labelText: loc.addFoodNameLabel),
               ),
-              NumberField(controller: kcalController, labelText: 'Kcal / 100g'),
+              NumberField(controller: kcalController, labelText: loc.addFoodKcalLabel),
               NumberField(
                 controller: proteinController,
-                labelText: 'Protein / 100g',
+                labelText: loc.addFoodProteinLabel,
               ),
-              NumberField(controller: fatController, labelText: 'Fat / 100g'),
+              NumberField(controller: fatController, labelText: loc.addFoodFatLabel),
               NumberField(
                 controller: carbsController,
-                labelText: 'Carbs / 100g',
+                labelText: loc.addFoodCarbsLabel,
               ),
               NumberField(
                 controller: gramsController,
-                labelText: 'Grams eaten',
+                labelText: loc.addFoodGramsEatenLabel,
               ),
               CheckboxListTile(
                 contentPadding: EdgeInsets.zero,
                 value: isFavorite,
-                title: const Text('Favorite'),
+                title: Text(loc.addFoodFavoriteLabel),
                 onChanged: (value) =>
                     setState(() => isFavorite = value ?? false),
               ),
@@ -440,7 +450,7 @@ Future<bool> showEditableFoodDialog({
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
+            child: Text(loc.addFoodCancelButton),
           ),
           TextButton(
             onPressed: () {
@@ -451,16 +461,16 @@ Future<bool> showEditableFoodDialog({
               final grams = double.tryParse(gramsController.text);
               final nutrients = [kcal, protein, fat, carbs];
               if (nutrients.any((v) => v == null || !v.isFinite || v < 0)) {
-                setState(() => errorText = 'Nutrient values must be non-negative numbers');
+                setState(() => errorText = loc.addFoodNutrientError);
                 return;
               }
               if (grams == null || !grams.isFinite || grams <= 0) {
-                setState(() => errorText = 'Grams eaten must be a positive number');
+                setState(() => errorText = loc.addFoodGramsError);
                 return;
               }
               Navigator.pop(context, true);
             },
-            child: const Text('Save'),
+            child: Text(loc.addFoodSaveButton),
           ),
         ],
       ),
