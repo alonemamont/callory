@@ -66,7 +66,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.textContaining('Test Meal Item'), findsOneWidget);
-    expect(find.textContaining('Прием 1'), findsOneWidget);
+    expect(find.textContaining('Meal 1'), findsOneWidget);
 
     await db.close();
   });
@@ -252,8 +252,8 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.textContaining('Прием 1'), findsOneWidget);
-      expect(find.textContaining('Прием 2'), findsOneWidget);
+      expect(find.textContaining('Meal 1'), findsOneWidget);
+      expect(find.textContaining('Meal 2'), findsOneWidget);
       expect(find.textContaining('Breakfast A'), findsOneWidget);
       expect(find.textContaining('Breakfast B'), findsOneWidget);
       expect(find.textContaining('Lunch A'), findsOneWidget);

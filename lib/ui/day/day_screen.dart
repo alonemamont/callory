@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:callory/db/database.dart';
+import 'package:callory/l10n/app_localizations.dart';
 import 'package:callory/providers/providers.dart';
 
 final _dayRefreshProvider = StateProvider<int>((ref) => 0);
@@ -10,6 +11,7 @@ class DayScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final loc = AppLocalizations.of(context)!;
     final selectedDay = ref.watch(selectedDayProvider);
     final diaryRepo = ref.watch(diaryRepositoryProvider);
     final goalsRepo = ref.watch(goalsRepositoryProvider);
@@ -52,7 +54,7 @@ class DayScreen extends ConsumerWidget {
               if (goals != null) _GoalProgress(totals: totals, goals: goals),
               Expanded(
                 child: meals.isEmpty
-                    ? const Center(child: Text('No meals logged yet'))
+                    ? Center(child: Text(loc.dayNoMealsLoggedYet))
                     : ListView(
                         children: meals
                             .map((meal) => _MealSection(
@@ -92,14 +94,15 @@ class _GoalProgress extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context)!;
     return Padding(
       padding: const EdgeInsets.all(12),
       child: Column(
         children: [
-          _ProgressRow(label: 'Kcal', actual: totals.kcal, goal: goals.dailyKcal),
-          _ProgressRow(label: 'Protein', actual: totals.protein, goal: goals.dailyProtein),
-          _ProgressRow(label: 'Fat', actual: totals.fat, goal: goals.dailyFat),
-          _ProgressRow(label: 'Carbs', actual: totals.carbs, goal: goals.dailyCarbs),
+          _ProgressRow(label: loc.dayLabelKcal, actual: totals.kcal, goal: goals.dailyKcal),
+          _ProgressRow(label: loc.dayLabelProtein, actual: totals.protein, goal: goals.dailyProtein),
+          _ProgressRow(label: loc.dayLabelFat, actual: totals.fat, goal: goals.dailyFat),
+          _ProgressRow(label: loc.dayLabelCarbs, actual: totals.carbs, goal: goals.dailyCarbs),
         ],
       ),
     );
@@ -136,18 +139,19 @@ class _MealSection extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final loc = AppLocalizations.of(context)!;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-          child: Text('Прием ${meal.mealNumber}', style: Theme.of(context).textTheme.titleMedium),
+          child: Text(loc.dayMealSection(meal.mealNumber), style: Theme.of(context).textTheme.titleMedium),
         ),
         for (final entry in entries)
           ListTile(
             title: Text(entry.foodNameSnapshot),
-            subtitle: Text('${entry.grams.round()} g'),
-            trailing: Text('${entry.kcalSnapshot.round()} kcal'),
+            subtitle: Text(loc.dayEntryGrams(entry.grams.round())),
+            trailing: Text(loc.dayEntryKcal(entry.kcalSnapshot.round())),
             onTap: () => _showEditGramsDialog(context, ref, entry),
           ),
       ],
@@ -159,6 +163,7 @@ class _MealSection extends ConsumerWidget {
     WidgetRef ref,
     DiaryEntry entry,
   ) async {
+    final loc = AppLocalizations.of(context)!;
     final gramsController = TextEditingController(text: entry.grams.round().toString());
 
     final confirmed = await showDialog<bool>(
@@ -168,13 +173,13 @@ class _MealSection extends ConsumerWidget {
         content: TextField(
           key: const Key('editEntryGramsField'),
           controller: gramsController,
-          decoration: const InputDecoration(labelText: 'Grams eaten'),
+          decoration: InputDecoration(labelText: loc.dayGramsEatenLabel),
           keyboardType: TextInputType.number,
           autofocus: true,
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
-          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Save')),
+          TextButton(onPressed: () => Navigator.pop(context, false), child: Text(loc.dayCancelButton)),
+          TextButton(onPressed: () => Navigator.pop(context, true), child: Text(loc.daySaveButton)),
         ],
       ),
     );
