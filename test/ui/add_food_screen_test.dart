@@ -12,6 +12,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../test_helpers.dart';
 
 class _EmptySource implements FoodSource {
   @override
@@ -112,8 +113,8 @@ void main() {
           databaseProvider.overrideWithValue(db),
           settingsServiceProvider.overrideWithValue(SettingsService(prefs)),
         ],
-        child: MaterialApp(
-          home: _DialogLauncher(initial: initial, barcode: barcode),
+        child: wrapWithLocalizations(
+          _DialogLauncher(initial: initial, barcode: barcode),
         ),
       ),
     );
@@ -138,7 +139,7 @@ void main() {
           if (foodLookupService != null)
             foodLookupServiceProvider.overrideWithValue(foodLookupService),
         ],
-        child: const MaterialApp(home: AddFoodScreen()),
+        child: wrapWithLocalizations(const AddFoodScreen()),
       ),
     );
     await tester.pumpAndSettle();
