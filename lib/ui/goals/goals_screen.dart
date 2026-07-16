@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:callory/db/database.dart';
 import 'package:callory/domain/bmr_calculator.dart';
+import 'package:callory/l10n/app_localizations.dart';
 import 'package:callory/providers/providers.dart';
 import 'package:callory/ui/widgets/number_field.dart';
 
@@ -67,6 +68,7 @@ class _GoalsScreenState extends ConsumerState<GoalsScreen> {
   }
 
   Future<void> _save() async {
+    final loc = AppLocalizations.of(context)!;
     final goalsRepo = ref.read(goalsRepositoryProvider);
     try {
       if (_mode == _Mode.manual) {
@@ -78,7 +80,7 @@ class _GoalsScreenState extends ConsumerState<GoalsScreen> {
         );
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Goals saved')),
+          SnackBar(content: Text(loc.goalsSavedMessage)),
         );
       } else {
         final result = await goalsRepo.setCalculatedGoals(BmrInput(
@@ -103,7 +105,7 @@ class _GoalsScreenState extends ConsumerState<GoalsScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to save goals: $e')),
+          SnackBar(content: Text(loc.goalsSaveFailure(e.toString()))),
         );
       }
     }
@@ -111,21 +113,22 @@ class _GoalsScreenState extends ConsumerState<GoalsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context)!;
     if (_loading) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Goals')),
+        appBar: AppBar(title: Text(loc.goalsTitle)),
         body: const Center(child: CircularProgressIndicator()),
       );
     }
     return Scaffold(
-      appBar: AppBar(title: const Text('Goals')),
+      appBar: AppBar(title: Text(loc.goalsTitle)),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
           SegmentedButton<_Mode>(
-            segments: const [
-              ButtonSegment(value: _Mode.manual, label: Text('Manual')),
-              ButtonSegment(value: _Mode.calculated, label: Text('Calculated')),
+            segments: [
+              ButtonSegment(value: _Mode.manual, label: Text(loc.goalsModeManual)),
+              ButtonSegment(value: _Mode.calculated, label: Text(loc.goalsModeCalculated)),
             ],
             selected: {_mode},
             onSelectionChanged: (selection) => setState(() => _mode = selection.first),
@@ -135,22 +138,22 @@ class _GoalsScreenState extends ConsumerState<GoalsScreen> {
             NumberField(
               fieldKey: const Key('manualKcalField'),
               controller: _kcalController,
-              labelText: 'Daily kcal',
+              labelText: loc.goalsDailyKcalLabel,
             ),
             NumberField(
               fieldKey: const Key('manualProteinField'),
               controller: _proteinController,
-              labelText: 'Protein (g)',
+              labelText: loc.goalsProteinLabel,
             ),
             NumberField(
               fieldKey: const Key('manualFatField'),
               controller: _fatController,
-              labelText: 'Fat (g)',
+              labelText: loc.goalsFatLabel,
             ),
             NumberField(
               fieldKey: const Key('manualCarbsField'),
               controller: _carbsController,
-              labelText: 'Carbs (g)',
+              labelText: loc.goalsCarbsLabel,
             ),
           ] else ...[
             DropdownButton<Sex>(
@@ -162,17 +165,17 @@ class _GoalsScreenState extends ConsumerState<GoalsScreen> {
             NumberField(
               fieldKey: const Key('calcAgeField'),
               controller: _ageController,
-              labelText: 'Age',
+              labelText: loc.goalsAgeLabel,
             ),
             NumberField(
               fieldKey: const Key('calcWeightField'),
               controller: _weightController,
-              labelText: 'Weight (kg)',
+              labelText: loc.goalsWeightLabel,
             ),
             NumberField(
               fieldKey: const Key('calcHeightField'),
               controller: _heightController,
-              labelText: 'Height (cm)',
+              labelText: loc.goalsHeightLabel,
             ),
             DropdownButton<ActivityLevel>(
               value: _activityLevel,
@@ -189,7 +192,7 @@ class _GoalsScreenState extends ConsumerState<GoalsScreen> {
           ElevatedButton(
             key: const Key('saveGoalsButton'),
             onPressed: _save,
-            child: const Text('Save'),
+            child: Text(loc.goalsSaveButton),
           ),
         ],
       ),

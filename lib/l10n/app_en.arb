@@ -1,0 +1,115 @@
+{
+  "@@locale": "en",
+
+  "navDay": "Day",
+  "navAdd": "Add",
+  "navGoals": "Goals",
+  "navSettings": "Settings",
+
+  "settingsTitle": "Settings",
+  "settingsLanguageLabel": "Language",
+  "settingsGapWindowLabel": "Meal grouping gap: {minutes} minutes",
+  "@settingsGapWindowLabel": {
+    "placeholders": {
+      "minutes": {"type": "int"}
+    }
+  },
+  "settingsGapWindowSliderLabel": "{minutes} min",
+  "@settingsGapWindowSliderLabel": {
+    "placeholders": {
+      "minutes": {"type": "int"}
+    }
+  },
+  "settingsExportButton": "Export data (JSON)",
+  "settingsImportButton": "Import data (JSON)",
+  "settingsImportConfirmTitle": "Replace current data?",
+  "settingsImportConfirmBody": "Importing will overwrite all current data. This cannot be undone.",
+  "settingsCancelButton": "Cancel",
+  "settingsReplaceButton": "Replace",
+  "settingsImportSuccess": "Data imported",
+  "settingsImportFailure": "Import failed: {error}",
+  "@settingsImportFailure": {
+    "placeholders": {
+      "error": {"type": "String"}
+    }
+  },
+
+  "goalsTitle": "Goals",
+  "goalsSavedMessage": "Goals saved",
+  "goalsSaveFailure": "Failed to save goals: {error}",
+  "@goalsSaveFailure": {
+    "placeholders": {
+      "error": {"type": "String"}
+    }
+  },
+  "goalsModeManual": "Manual",
+  "goalsModeCalculated": "Calculated",
+  "goalsDailyKcalLabel": "Daily kcal",
+  "goalsProteinLabel": "Protein (g)",
+  "goalsFatLabel": "Fat (g)",
+  "goalsCarbsLabel": "Carbs (g)",
+  "goalsAgeLabel": "Age",
+  "goalsWeightLabel": "Weight (kg)",
+  "goalsHeightLabel": "Height (cm)",
+  "goalsSaveButton": "Save",
+
+  "addFoodTitle": "Add food",
+  "addFoodTabRecent": "Recent",
+  "addFoodTabSearch": "Search",
+  "addFoodTabBarcode": "Barcode",
+  "addFoodTabManual": "Manual",
+  "addFoodOnlyFavorites": "Only favorites",
+  "addFoodNoFavoriteRecentFoods": "No favorite recent foods yet",
+  "addFoodNoRecentFoods": "No recent foods yet",
+  "addFoodKcalPer100g": "{kcal} kcal / 100g",
+  "@addFoodKcalPer100g": {
+    "placeholders": {
+      "kcal": {"type": "int"}
+    }
+  },
+  "addFoodFavoriteUpdateFailed": "Could not update favorite",
+  "addFoodSearchLabel": "Search foods",
+  "addFoodInYourFoodsSuffix": " (in your foods)",
+  "addFoodBarcodeNotFound": "Product not found — enter it manually",
+  "addFoodAddManuallyButton": "Add food manually",
+  "addFoodSavedMessage": "Food saved",
+  "addFoodDialogTitle": "Food details",
+  "addFoodNameLabel": "Name",
+  "addFoodKcalLabel": "Kcal / 100g",
+  "addFoodProteinLabel": "Protein / 100g",
+  "addFoodFatLabel": "Fat / 100g",
+  "addFoodCarbsLabel": "Carbs / 100g",
+  "addFoodGramsEatenLabel": "Grams eaten",
+  "addFoodFavoriteLabel": "Favorite",
+  "addFoodNutrientError": "Nutrient values must be non-negative numbers",
+  "addFoodGramsError": "Grams eaten must be a positive number",
+  "addFoodCancelButton": "Cancel",
+  "addFoodSaveButton": "Save",
+
+  "dayNoMealsLoggedYet": "No meals logged yet",
+  "dayLabelKcal": "Kcal",
+  "dayLabelProtein": "Protein",
+  "dayLabelFat": "Fat",
+  "dayLabelCarbs": "Carbs",
+  "dayMealSection": "Meal {number}",
+  "@dayMealSection": {
+    "placeholders": {
+      "number": {"type": "int"}
+    }
+  },
+  "dayEntryGrams": "{grams} g",
+  "@dayEntryGrams": {
+    "placeholders": {
+      "grams": {"type": "int"}
+    }
+  },
+  "dayEntryKcal": "{kcal} kcal",
+  "@dayEntryKcal": {
+    "placeholders": {
+      "kcal": {"type": "int"}
+    }
+  },
+  "dayGramsEatenLabel": "Grams eaten",
+  "dayCancelButton": "Cancel",
+  "daySaveButton": "Save"
+}

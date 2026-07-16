@@ -5,6 +5,7 @@ import 'package:drift/native.dart';
 import 'package:callory/db/database.dart';
 import 'package:callory/providers/providers.dart';
 import 'package:callory/ui/goals/goals_screen.dart';
+import '../test_helpers.dart';
 
 void main() {
   testWidgets('manual mode lets the user type kcal directly and save it', (tester) async {
@@ -12,7 +13,7 @@ void main() {
 
     await tester.pumpWidget(ProviderScope(
       overrides: [databaseProvider.overrideWithValue(db)],
-      child: const MaterialApp(home: GoalsScreen()),
+      child: wrapWithLocalizations(const GoalsScreen()),
     ));
     await tester.pumpAndSettle();
 
@@ -34,7 +35,7 @@ void main() {
 
     await tester.pumpWidget(ProviderScope(
       overrides: [databaseProvider.overrideWithValue(db)],
-      child: const MaterialApp(home: GoalsScreen()),
+      child: wrapWithLocalizations(const GoalsScreen()),
     ));
     await tester.pumpAndSettle();
 
@@ -76,7 +77,7 @@ void main() {
 
     await tester.pumpWidget(ProviderScope(
       overrides: [databaseProvider.overrideWithValue(db)],
-      child: const MaterialApp(home: GoalsScreen()),
+      child: wrapWithLocalizations(const GoalsScreen()),
     ));
     await tester.pumpAndSettle();
 
@@ -106,7 +107,7 @@ void main() {
 
     await tester.pumpWidget(ProviderScope(
       overrides: [databaseProvider.overrideWithValue(db)],
-      child: const MaterialApp(home: GoalsScreen()),
+      child: wrapWithLocalizations(const GoalsScreen()),
     ));
     await tester.pumpAndSettle();
 
@@ -129,7 +130,7 @@ void main() {
 
     await tester.pumpWidget(ProviderScope(
       overrides: [databaseProvider.overrideWithValue(db)],
-      child: const MaterialApp(home: GoalsScreen()),
+      child: wrapWithLocalizations(const GoalsScreen()),
     ));
     await tester.pumpAndSettle();
 
@@ -151,7 +152,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.pumpWidget(ProviderScope(
       overrides: [databaseProvider.overrideWithValue(db)],
-      child: const MaterialApp(home: GoalsScreen()),
+      child: wrapWithLocalizations(const GoalsScreen()),
     ));
     await tester.pumpAndSettle();
 

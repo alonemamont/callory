@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:callory/data/settings_service.dart';
 import 'package:callory/providers/providers.dart';
 import 'package:callory/ui/settings/settings_screen.dart';
+import '../test_helpers.dart';
 
 void main() {
   testWidgets('releasing the gap-window slider persists the new value', (tester) async {
@@ -16,7 +17,7 @@ void main() {
 
     await tester.pumpWidget(ProviderScope(
       overrides: [settingsServiceProvider.overrideWithValue(settingsService)],
-      child: const MaterialApp(home: SettingsScreen()),
+      child: wrapWithLocalizations(const SettingsScreen()),
     ));
     await tester.pumpAndSettle();
 

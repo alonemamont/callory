@@ -20,4 +20,32 @@ void main() {
 
     expect(service.gapWindow, const Duration(minutes: 45));
   });
+
+  test('localeCode defaults to null when nothing is stored', () async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+    final service = SettingsService(prefs);
+
+    expect(service.localeCode, isNull);
+  });
+
+  test('setLocaleCode persists and is reflected immediately', () async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+    final service = SettingsService(prefs);
+
+    await service.setLocaleCode('ru');
+
+    expect(service.localeCode, 'ru');
+  });
+
+  test('setLocaleCode(null) clears a previously stored locale', () async {
+    SharedPreferences.setMockInitialValues({'locale_code': 'ru'});
+    final prefs = await SharedPreferences.getInstance();
+    final service = SettingsService(prefs);
+
+    await service.setLocaleCode(null);
+
+    expect(service.localeCode, isNull);
+  });
 }

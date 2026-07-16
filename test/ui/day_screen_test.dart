@@ -10,6 +10,7 @@ import 'package:callory/data/goals_repository.dart';
 import 'package:callory/domain/bmr_calculator.dart';
 import 'package:callory/providers/providers.dart';
 import 'package:callory/ui/day/day_screen.dart';
+import '../test_helpers.dart';
 
 void main() {
   testWidgets('shows an empty state with no meals logged for the day', (
@@ -25,7 +26,7 @@ void main() {
           databaseProvider.overrideWithValue(db),
           settingsServiceProvider.overrideWithValue(SettingsService(prefs)),
         ],
-        child: const MaterialApp(home: DayScreen()),
+        child: wrapWithLocalizations(const DayScreen()),
       ),
     );
     await tester.pumpAndSettle();
@@ -59,13 +60,13 @@ void main() {
           databaseProvider.overrideWithValue(db),
           settingsServiceProvider.overrideWithValue(SettingsService(prefs)),
         ],
-        child: const MaterialApp(home: DayScreen()),
+        child: wrapWithLocalizations(const DayScreen()),
       ),
     );
     await tester.pumpAndSettle();
 
     expect(find.textContaining('Test Meal Item'), findsOneWidget);
-    expect(find.textContaining('Прием 1'), findsOneWidget);
+    expect(find.textContaining('Meal 1'), findsOneWidget);
 
     await db.close();
   });
@@ -94,7 +95,7 @@ void main() {
           databaseProvider.overrideWithValue(db),
           settingsServiceProvider.overrideWithValue(SettingsService(prefs)),
         ],
-        child: const MaterialApp(home: DayScreen()),
+        child: wrapWithLocalizations(const DayScreen()),
       ),
     );
     await tester.pumpAndSettle();
@@ -145,7 +146,7 @@ void main() {
             databaseProvider.overrideWithValue(db),
             settingsServiceProvider.overrideWithValue(SettingsService(prefs)),
           ],
-          child: const MaterialApp(home: DayScreen()),
+          child: wrapWithLocalizations(const DayScreen()),
         ),
       );
       await tester.pumpAndSettle();
@@ -189,7 +190,7 @@ void main() {
             databaseProvider.overrideWithValue(db),
             settingsServiceProvider.overrideWithValue(SettingsService(prefs)),
           ],
-          child: const MaterialApp(home: DayScreen()),
+          child: wrapWithLocalizations(const DayScreen()),
         ),
       );
       await tester.pumpAndSettle();
@@ -246,13 +247,13 @@ void main() {
             databaseProvider.overrideWithValue(db),
             settingsServiceProvider.overrideWithValue(SettingsService(prefs)),
           ],
-          child: const MaterialApp(home: DayScreen()),
+          child: wrapWithLocalizations(const DayScreen()),
         ),
       );
       await tester.pumpAndSettle();
 
-      expect(find.textContaining('Прием 1'), findsOneWidget);
-      expect(find.textContaining('Прием 2'), findsOneWidget);
+      expect(find.textContaining('Meal 1'), findsOneWidget);
+      expect(find.textContaining('Meal 2'), findsOneWidget);
       expect(find.textContaining('Breakfast A'), findsOneWidget);
       expect(find.textContaining('Breakfast B'), findsOneWidget);
       expect(find.textContaining('Lunch A'), findsOneWidget);

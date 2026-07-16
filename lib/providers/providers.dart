@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/widgets.dart';
 import 'package:callory/db/database.dart';
 import 'package:callory/data/food_repository.dart';
 import 'package:callory/data/diary_repository.dart';
@@ -56,3 +57,18 @@ DateTime _todayAtMidnight() {
 }
 
 final selectedDayProvider = StateProvider<DateTime>((ref) => _todayAtMidnight());
+
+final localeProvider = NotifierProvider<LocaleNotifier, Locale?>(LocaleNotifier.new);
+
+class LocaleNotifier extends Notifier<Locale?> {
+  @override
+  Locale? build() {
+    final code = ref.watch(settingsServiceProvider).localeCode;
+    return code == null ? null : Locale(code);
+  }
+
+  Future<void> setLocale(Locale? locale) async {
+    state = locale;
+    await ref.read(settingsServiceProvider).setLocaleCode(locale?.languageCode);
+  }
+}
