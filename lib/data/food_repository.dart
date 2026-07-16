@@ -16,6 +16,12 @@ class FoodRepository implements FoodSource {
     required FoodSourceType source,
     bool isFavorite = false,
   }) {
+    _validateNutrients(
+      kcal: kcalPer100g,
+      protein: proteinPer100g,
+      fat: fatPer100g,
+      carbs: carbsPer100g,
+    );
     return db.into(db.privateFoods).insert(PrivateFoodsCompanion.insert(
           name: name,
           barcode: Value(barcode),
@@ -38,6 +44,12 @@ class FoodRepository implements FoodSource {
     required double fatPer100g,
     required double carbsPer100g,
   }) {
+    _validateNutrients(
+      kcal: kcalPer100g,
+      protein: proteinPer100g,
+      fat: fatPer100g,
+      carbs: carbsPer100g,
+    );
     return (db.update(db.privateFoods)..where((f) => f.id.equals(id))).write(
       PrivateFoodsCompanion(
         name: Value(name),
@@ -83,8 +95,13 @@ class FoodRepository implements FoodSource {
 
   @override
   Future<List<FoodResult>> searchByName(String query) async {
+    final escaped = query
+        .toLowerCase()
+        .replaceAll(r'\', r'\\')
+        .replaceAll('%', r'\%')
+        .replaceAll('_', r'\_');
     final rows = await (db.select(db.privateFoods)
-          ..where((f) => f.name.lower().like('%${query.toLowerCase()}%'))
+          ..where((f) => f.name.lower().like('%$escaped%', escapeChar: r'\'))
           ..orderBy([(f) => OrderingTerm.asc(f.name)]))
         .get();
     return rows.map(_toResult).toList();
@@ -130,6 +147,19 @@ class FoodRepository implements FoodSource {
           ),
         )
         .toList();
+  }
+
+  void _validateNutrients({
+    required double kcal,
+    required double protein,
+    required double fat,
+    required double carbs,
+  }) {
+    for (final value in [kcal, protein, fat, carbs]) {
+      if (!value.isFinite || value < 0) {
+        throw ArgumentError('Nutrient values must be non-negative finite numbers');
+      }
+    }
   }
 
   FoodResult _toResult(PrivateFood row) => FoodResult(

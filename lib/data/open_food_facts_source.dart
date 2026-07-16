@@ -22,7 +22,7 @@ class OpenFoodFactsSource implements FoodSource {
           .map((p) => _parseProduct(p as Map<String, dynamic>))
           .whereType<FoodResult>()
           .toList();
-    } on Exception {
+    } catch (_) {
       return [];
     }
   }
@@ -37,7 +37,7 @@ class OpenFoodFactsSource implements FoodSource {
       final data = jsonDecode(response.body) as Map<String, dynamic>;
       if (data['status'] != 1) return null;
       return _parseProduct(data['product'] as Map<String, dynamic>);
-    } on Exception {
+    } catch (_) {
       return null;
     }
   }
@@ -50,6 +50,12 @@ class OpenFoodFactsSource implements FoodSource {
     final fat = _asDouble(nutriments['fat_100g']);
     final carbs = _asDouble(nutriments['carbohydrates_100g']);
     if (kcal == null || protein == null || fat == null || carbs == null) {
+      return null;
+    }
+    if (!kcal.isFinite || !protein.isFinite || !fat.isFinite || !carbs.isFinite) {
+      return null;
+    }
+    if (kcal < 0 || protein < 0 || fat < 0 || carbs < 0) {
       return null;
     }
     final name = product['product_name'] as String?;

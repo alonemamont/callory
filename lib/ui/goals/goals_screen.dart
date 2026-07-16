@@ -68,32 +68,44 @@ class _GoalsScreenState extends ConsumerState<GoalsScreen> {
 
   Future<void> _save() async {
     final goalsRepo = ref.read(goalsRepositoryProvider);
-    if (_mode == _Mode.manual) {
-      await goalsRepo.setManualGoals(
-        dailyKcal: double.tryParse(_kcalController.text) ?? 0,
-        dailyProtein: double.tryParse(_proteinController.text) ?? 0,
-        dailyFat: double.tryParse(_fatController.text) ?? 0,
-        dailyCarbs: double.tryParse(_carbsController.text) ?? 0,
-      );
-    } else {
-      final result = await goalsRepo.setCalculatedGoals(BmrInput(
-        sex: _sex,
-        age: int.tryParse(_ageController.text) ?? 0,
-        weightKg: double.tryParse(_weightController.text) ?? 0,
-        heightCm: double.tryParse(_heightController.text) ?? 0,
-        activityLevel: _activityLevel,
-        goalType: _goalType,
-      ));
-      if (!mounted) return;
-      // Populate the manual fields with the computed numbers so switching to
-      // Manual immediately shows an editable starting point (per spec: an
-      // override afterward switches the stored record to manual mode).
-      setState(() {
-        _kcalController.text = _formatNumber(result.kcal);
-        _proteinController.text = _formatNumber(result.proteinG);
-        _fatController.text = _formatNumber(result.fatG);
-        _carbsController.text = _formatNumber(result.carbsG);
-      });
+    try {
+      if (_mode == _Mode.manual) {
+        await goalsRepo.setManualGoals(
+          dailyKcal: double.tryParse(_kcalController.text) ?? 0,
+          dailyProtein: double.tryParse(_proteinController.text) ?? 0,
+          dailyFat: double.tryParse(_fatController.text) ?? 0,
+          dailyCarbs: double.tryParse(_carbsController.text) ?? 0,
+        );
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Goals saved')),
+        );
+      } else {
+        final result = await goalsRepo.setCalculatedGoals(BmrInput(
+          sex: _sex,
+          age: int.tryParse(_ageController.text) ?? 0,
+          weightKg: double.tryParse(_weightController.text) ?? 0,
+          heightCm: double.tryParse(_heightController.text) ?? 0,
+          activityLevel: _activityLevel,
+          goalType: _goalType,
+        ));
+        if (!mounted) return;
+        // Populate the manual fields with the computed numbers so switching to
+        // Manual immediately shows an editable starting point (per spec: an
+        // override afterward switches the stored record to manual mode).
+        setState(() {
+          _kcalController.text = _formatNumber(result.kcal);
+          _proteinController.text = _formatNumber(result.proteinG);
+          _fatController.text = _formatNumber(result.fatG);
+          _carbsController.text = _formatNumber(result.carbsG);
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to save goals: $e')),
+        );
+      }
     }
   }
 

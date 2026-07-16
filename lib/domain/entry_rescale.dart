@@ -17,7 +17,9 @@ NutrientSnapshot rescaleSnapshot({
   required double oldGrams,
   required double newGrams,
 }) {
-  assert(oldGrams > 0, 'oldGrams must be positive to rescale a snapshot');
+  if (oldGrams <= 0) {
+    throw ArgumentError.value(oldGrams, 'oldGrams', 'must be positive to rescale a snapshot');
+  }
   final ratio = newGrams / oldGrams;
   return NutrientSnapshot(
     kcal: original.kcal * ratio,

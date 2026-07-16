@@ -27,7 +27,7 @@ void main() {
 
     expect(
       () => rescaleSnapshot(original: original, oldGrams: 0, newGrams: 50),
-      throwsA(isA<AssertionError>()),
+      throwsA(isA<ArgumentError>()),
     );
   });
 }

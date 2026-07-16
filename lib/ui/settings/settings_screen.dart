@@ -53,14 +53,22 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
     if (confirmed != true) return;
 
-    final content = await File(path).readAsString();
-    final json = jsonDecode(content) as Map<String, dynamic>;
-    await ref.read(exportImportServiceProvider).importFromJson(json);
+    try {
+      final content = await File(path).readAsString();
+      final json = jsonDecode(content) as Map<String, dynamic>;
+      await ref.read(exportImportServiceProvider).importFromJson(json);
 
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Data imported')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Data imported')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Import failed: $e')),
+        );
+      }
     }
   }
 

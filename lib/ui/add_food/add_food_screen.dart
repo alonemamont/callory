@@ -73,22 +73,37 @@ class _RecentTab extends ConsumerStatefulWidget {
 
 class _RecentTabState extends ConsumerState<_RecentTab> {
   var _favoritesOnly = false;
+  late Future<List<FoodResult>> _recentFoods;
+
+  @override
+  void initState() {
+    super.initState();
+    _recentFoods = ref
+        .read(foodRepositoryProvider)
+        .getRecentFoods(favoritesOnly: _favoritesOnly);
+  }
+
+  void _refresh() {
+    setState(() {
+      _recentFoods = ref
+          .read(foodRepositoryProvider)
+          .getRecentFoods(favoritesOnly: _favoritesOnly);
+    });
+  }
 
   Future<void> _toggleFavorite(FoodResult result) async {
     await ref
         .read(foodRepositoryProvider)
         .setFavorite(result.existingPrivateFoodId!, !result.isFavorite);
     if (mounted) {
-      setState(() {});
+      _refresh();
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<List<FoodResult>>(
-      future: ref
-          .read(foodRepositoryProvider)
-          .getRecentFoods(favoritesOnly: _favoritesOnly),
+      future: _recentFoods,
       builder: (context, snapshot) {
         if (!snapshot.hasData) {
           return const Center(child: CircularProgressIndicator());
@@ -102,7 +117,10 @@ class _RecentTabState extends ConsumerState<_RecentTab> {
             SwitchListTile(
               title: const Text('Only favorites'),
               value: _favoritesOnly,
-              onChanged: (value) => setState(() => _favoritesOnly = value),
+              onChanged: (value) {
+                _favoritesOnly = value;
+                _refresh();
+              },
             ),
             if (results.isEmpty)
               Expanded(
@@ -139,7 +157,7 @@ class _RecentTabState extends ConsumerState<_RecentTab> {
                           barcode: result.barcode,
                         );
                         if (mounted) {
-                          setState(() {});
+                          _refresh();
                         }
                       },
                     );
@@ -263,12 +281,15 @@ class _SearchTabState extends ConsumerState<_SearchTab> {
   }
 
   Future<void> _openGramsDialog(BuildContext context, FoodResult result) async {
-    await showEditableFoodDialog(
+    final saved = await showEditableFoodDialog(
       context: context,
       ref: ref,
       initial: result,
       barcode: result.barcode,
     );
+    if (saved && mounted) {
+      await _search(_controller.text);
+    }
   }
 }
 
@@ -369,6 +390,7 @@ Future<bool> showEditableFoodDialog({
   );
   final gramsController = TextEditingController(text: '100');
   var isFavorite = initial.isFavorite;
+  String? errorText;
 
   final confirmed = await showDialog<bool>(
     context: context,
@@ -404,6 +426,14 @@ Future<bool> showEditableFoodDialog({
                 onChanged: (value) =>
                     setState(() => isFavorite = value ?? false),
               ),
+              if (errorText != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: Text(
+                    errorText!,
+                    style: TextStyle(color: Theme.of(context).colorScheme.error),
+                  ),
+                ),
             ],
           ),
         ),
@@ -413,7 +443,23 @@ Future<bool> showEditableFoodDialog({
             child: const Text('Cancel'),
           ),
           TextButton(
-            onPressed: () => Navigator.pop(context, true),
+            onPressed: () {
+              final kcal = double.tryParse(kcalController.text);
+              final protein = double.tryParse(proteinController.text);
+              final fat = double.tryParse(fatController.text);
+              final carbs = double.tryParse(carbsController.text);
+              final grams = double.tryParse(gramsController.text);
+              final nutrients = [kcal, protein, fat, carbs];
+              if (nutrients.any((v) => v == null || !v.isFinite || v < 0)) {
+                setState(() => errorText = 'Nutrient values must be non-negative numbers');
+                return;
+              }
+              if (grams == null || !grams.isFinite || grams <= 0) {
+                setState(() => errorText = 'Grams eaten must be a positive number');
+                return;
+              }
+              Navigator.pop(context, true);
+            },
             child: const Text('Save'),
           ),
         ],
@@ -423,11 +469,11 @@ Future<bool> showEditableFoodDialog({
 
   if (confirmed != true) return false;
 
-  final kcalPer100g = double.tryParse(kcalController.text) ?? 0;
-  final proteinPer100g = double.tryParse(proteinController.text) ?? 0;
-  final fatPer100g = double.tryParse(fatController.text) ?? 0;
-  final carbsPer100g = double.tryParse(carbsController.text) ?? 0;
-  final grams = double.tryParse(gramsController.text) ?? 100;
+  final kcalPer100g = double.parse(kcalController.text);
+  final proteinPer100g = double.parse(proteinController.text);
+  final fatPer100g = double.parse(fatController.text);
+  final carbsPer100g = double.parse(carbsController.text);
+  final grams = double.parse(gramsController.text);
 
   final foodRepo = ref.read(foodRepositoryProvider);
   final existingByBarcode = barcode == null

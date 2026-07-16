@@ -28,28 +28,63 @@ class ExportImportService {
       );
     }
 
+    final foods = (json['privateFoods'] as List)
+        .map((row) {
+          final foodJson = Map<String, dynamic>.from(row as Map<String, dynamic>);
+          foodJson.putIfAbsent('isFavorite', () => false);
+          return PrivateFood.fromJson(foodJson);
+        })
+        .toList();
+    final meals = (json['meals'] as List)
+        .map((row) => Meal.fromJson(row as Map<String, dynamic>))
+        .toList();
+    final entries = (json['diaryEntries'] as List)
+        .map((row) => DiaryEntry.fromJson(row as Map<String, dynamic>))
+        .toList();
+    final goals = (json['goals'] as List)
+        .map((row) => Goal.fromJson(row as Map<String, dynamic>))
+        .toList();
+
+    for (final entry in entries) {
+      final valid = entry.grams > 0 &&
+          entry.kcalSnapshot.isFinite &&
+          entry.proteinSnapshot.isFinite &&
+          entry.fatSnapshot.isFinite &&
+          entry.carbsSnapshot.isFinite;
+      if (!valid) {
+        throw FormatException('Invalid diary entry in import data: id ${entry.id}');
+      }
+    }
+    for (final food in foods) {
+      final valid = food.kcalPer100g.isFinite &&
+          food.kcalPer100g >= 0 &&
+          food.proteinPer100g.isFinite &&
+          food.proteinPer100g >= 0 &&
+          food.fatPer100g.isFinite &&
+          food.fatPer100g >= 0 &&
+          food.carbsPer100g.isFinite &&
+          food.carbsPer100g >= 0;
+      if (!valid) {
+        throw FormatException('Invalid private food in import data: id ${food.id}');
+      }
+    }
+
     await db.transaction(() async {
       await db.delete(db.diaryEntries).go();
       await db.delete(db.meals).go();
       await db.delete(db.privateFoods).go();
       await db.delete(db.goals).go();
 
-      for (final row in (json['privateFoods'] as List)) {
-        final foodJson = Map<String, dynamic>.from(row as Map<String, dynamic>);
-        foodJson.putIfAbsent('isFavorite', () => false);
-        final food = PrivateFood.fromJson(foodJson);
+      for (final food in foods) {
         await db.into(db.privateFoods).insert(food.toCompanion(true));
       }
-      for (final row in (json['meals'] as List)) {
-        final meal = Meal.fromJson(row as Map<String, dynamic>);
+      for (final meal in meals) {
         await db.into(db.meals).insert(meal.toCompanion(true));
       }
-      for (final row in (json['diaryEntries'] as List)) {
-        final entry = DiaryEntry.fromJson(row as Map<String, dynamic>);
+      for (final entry in entries) {
         await db.into(db.diaryEntries).insert(entry.toCompanion(true));
       }
-      for (final row in (json['goals'] as List)) {
-        final goal = Goal.fromJson(row as Map<String, dynamic>);
+      for (final goal in goals) {
         await db.into(db.goals).insert(goal.toCompanion(true));
       }
     });

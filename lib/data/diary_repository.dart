@@ -21,7 +21,9 @@ class DiaryRepository {
     required DateTime occurredAt,
     required Duration gapWindow,
   }) async {
-    assert(grams > 0, 'grams must be positive');
+    if (grams <= 0) {
+      throw ArgumentError.value(grams, 'grams', 'must be positive');
+    }
     final dayStart = _dayStart(entryDate);
     final ratio = grams / 100.0;
 
@@ -56,7 +58,9 @@ class DiaryRepository {
   }
 
   Future<void> updateEntryGrams(int entryId, double newGrams) async {
-    assert(newGrams > 0, 'grams must be positive');
+    if (newGrams <= 0) {
+      throw ArgumentError.value(newGrams, 'newGrams', 'must be positive');
+    }
     final entry =
         await (db.select(db.diaryEntries)..where((e) => e.id.equals(entryId)))
             .getSingle();
@@ -88,17 +92,19 @@ class DiaryRepository {
     DateTime newOccurredAt,
     Duration gapWindow,
   ) async {
-    final entry =
-        await (db.select(db.diaryEntries)..where((e) => e.id.equals(entryId)))
-            .getSingle();
+    await db.transaction(() async {
+      final entry = await (db.select(db.diaryEntries)
+            ..where((e) => e.id.equals(entryId)))
+          .getSingle();
 
-    await (db.update(db.diaryEntries)..where((e) => e.id.equals(entryId)))
-        .write(DiaryEntriesCompanion(
-      occurredAt: Value(newOccurredAt),
-      updatedAt: Value(DateTime.now()),
-    ));
+      await (db.update(db.diaryEntries)..where((e) => e.id.equals(entryId)))
+          .write(DiaryEntriesCompanion(
+        occurredAt: Value(newOccurredAt),
+        updatedAt: Value(DateTime.now()),
+      ));
 
-    await regroupDay(entry.entryDate, gapWindow);
+      await regroupDay(entry.entryDate, gapWindow);
+    });
   }
 
   Future<void> deleteEntry(int entryId, Duration gapWindow) async {
