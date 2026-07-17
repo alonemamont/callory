@@ -78,6 +78,8 @@
   "addFoodGramsEatenLabel": "Съедено, г",
   "addFoodFavoriteLabel": "Избранное",
   "addFoodNutrientError": "Значения нутриентов должны быть неотрицательными числами",
+  "addFoodNameRequiredError": "Введите название продукта",
+  "addFoodCaloriesRequiredError": "Калорийность должна быть больше нуля",
   "addFoodGramsError": "Съеденное количество должно быть положительным числом",
   "addFoodCancelButton": "Отмена",
   "addFoodSaveButton": "Сохранить",

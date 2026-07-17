@@ -542,6 +542,18 @@ abstract class AppLocalizations {
   /// **'Nutrient values must be non-negative numbers'**
   String get addFoodNutrientError;
 
+  /// No description provided for @addFoodNameRequiredError.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter a product name'**
+  String get addFoodNameRequiredError;
+
+  /// No description provided for @addFoodCaloriesRequiredError.
+  ///
+  /// In en, this message translates to:
+  /// **'Calories must be greater than zero'**
+  String get addFoodCaloriesRequiredError;
+
   /// No description provided for @addFoodGramsError.
   ///
   /// In en, this message translates to:

@@ -92,11 +92,34 @@ void main() {
     expect(entries, isEmpty);
   });
 
-  testWidgets('invalid nutrient value shows an error and creates nothing', (tester) async {
+  testWidgets('empty name shows an error and creates nothing', (tester) async {
+    await pumpLauncher(tester);
+
+    await tester.enterText(find.widgetWithText(TextField, 'Kcal / 100g'), '100');
+    await tester.tap(find.text('Save'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Enter a product name'), findsOneWidget);
+    expect(await db.select(db.privateFoods).get(), isEmpty);
+  });
+
+  testWidgets('zero calories shows an error and creates nothing', (tester) async {
+    await pumpLauncher(tester);
+
+    await tester.enterText(find.widgetWithText(TextField, 'Name'), 'Water');
+    await tester.tap(find.text('Save'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Calories must be greater than zero'), findsOneWidget);
+    expect(await db.select(db.privateFoods).get(), isEmpty);
+  });
+
+  testWidgets('negative protein still shows the generic nutrient error', (tester) async {
     await pumpLauncher(tester);
 
     await tester.enterText(find.widgetWithText(TextField, 'Name'), 'Bad Food');
-    await tester.enterText(find.widgetWithText(TextField, 'Kcal / 100g'), '-5');
+    await tester.enterText(find.widgetWithText(TextField, 'Kcal / 100g'), '100');
+    await tester.enterText(find.widgetWithText(TextField, 'Protein / 100g'), '-5');
     await tester.tap(find.text('Save'));
     await tester.pumpAndSettle();
 
@@ -154,6 +177,53 @@ void main() {
     expect(entries.single.grams, 200);
     expect(entries.single.kcalSnapshot, 260);
     expect(entries.single.carbsSnapshot, 56);
+  });
+
+  testWidgets('log-existing dialog autofocuses the grams field with its text selected', (tester) async {
+    final foodRepo = FoodRepository(db);
+    final id = await foodRepo.insertFood(
+      name: 'Known Oats',
+      kcalPer100g: 380,
+      proteinPer100g: 13,
+      fatPer100g: 7,
+      carbsPer100g: 67,
+      source: FoodSourceType.manual,
+    );
+
+    final prefs = await SharedPreferences.getInstance();
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          databaseProvider.overrideWithValue(db),
+          settingsServiceProvider.overrideWithValue(SettingsService(prefs)),
+        ],
+        child: wrapWithLocalizations(
+          _LogExistingLauncher(
+            food: FoodResult(
+              name: 'Known Oats',
+              kcalPer100g: 380,
+              proteinPer100g: 13,
+              fatPer100g: 7,
+              carbsPer100g: 67,
+              existingPrivateFoodId: id,
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('Open log dialog'));
+    await tester.pumpAndSettle();
+
+    final gramsField = tester.widget<TextField>(
+      find.widgetWithText(TextField, 'Grams eaten'),
+    );
+    expect(gramsField.focusNode!.hasFocus, true);
+
+    final gramsController = gramsField.controller!;
+    expect(
+      gramsController.selection,
+      TextSelection(baseOffset: 0, extentOffset: gramsController.text.length),
+    );
   });
 
   testWidgets('log-existing dialog rejects a non-positive grams value', (tester) async {

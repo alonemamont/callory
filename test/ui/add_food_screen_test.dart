@@ -419,7 +419,7 @@ void main() {
   );
 
   testWidgets(
-    'initial tab is Recent and tab order is Recent Search Barcode Manual',
+    'initial tab is Search, and tab order is Recent Search Barcode Manual',
     (tester) async {
       await pumpAddFoodScreen(tester, db: db);
 
@@ -427,18 +427,22 @@ void main() {
       expect(find.text('Search'), findsOneWidget);
       expect(find.text('Barcode'), findsOneWidget);
       expect(find.text('Manual'), findsOneWidget);
-      expect(find.text('Only favorites'), findsOneWidget);
+      expect(find.widgetWithText(TextField, 'Search foods'), findsOneWidget);
     },
   );
 
   testWidgets('empty recent state renders correctly', (tester) async {
     await pumpAddFoodScreen(tester, db: db);
+    await tester.tap(find.text('Recent'));
+    await tester.pumpAndSettle();
     expect(find.text('No recent foods yet'), findsOneWidget);
   });
 
   testWidgets('favorites-only empty state renders correctly', (tester) async {
     await seedUsedFood(db, name: 'Used Non Favorite', isFavorite: false);
     await pumpAddFoodScreen(tester, db: db);
+    await tester.tap(find.text('Recent'));
+    await tester.pumpAndSettle();
 
     await tester.tap(find.byType(SwitchListTile));
     await tester.pumpAndSettle();
@@ -451,6 +455,8 @@ void main() {
   ) async {
     final id = await seedUsedFood(db, name: 'Recent Oats', isFavorite: false);
     await pumpAddFoodScreen(tester, db: db);
+    await tester.tap(find.text('Recent'));
+    await tester.pumpAndSettle();
 
     await tester.tap(find.byIcon(Icons.star_border).last);
     await tester.pumpAndSettle();
@@ -460,14 +466,19 @@ void main() {
     expect(find.byIcon(Icons.star), findsOneWidget);
   });
 
-  testWidgets('tapping a recent row opens the existing dialog', (tester) async {
+  testWidgets('tapping a recent row opens the grams-only add-to-meal dialog', (
+    tester,
+  ) async {
     await seedUsedFood(db, name: 'Recent Rice', isFavorite: true);
     await pumpAddFoodScreen(tester, db: db);
+    await tester.tap(find.text('Recent'));
+    await tester.pumpAndSettle();
 
     await tester.tap(find.text('Recent Rice'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Food details'), findsOneWidget);
+    expect(find.widgetWithText(TextField, 'Grams eaten'), findsOneWidget);
+    expect(find.widgetWithText(TextField, 'Kcal / 100g'), findsNothing);
   });
 
   testWidgets('local search result favorite toggle does not open dialog', (
@@ -625,6 +636,68 @@ void main() {
 
       expect(find.byIcon(Icons.star), findsOneWidget);
       expect(find.textContaining('(in your foods)'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'typing without submitting triggers a debounced search after 1 second',
+    (tester) async {
+      await pumpAddFoodScreen(
+        tester,
+        db: db,
+        externalSource: _FakeFoodSource(
+          searchResults: const [
+            FoodResult(
+              name: 'Debounced Result',
+              kcalPer100g: 3,
+              proteinPer100g: 3,
+              fatPer100g: 3,
+              carbsPer100g: 3,
+            ),
+          ],
+        ),
+      );
+
+      final searchField = find.widgetWithText(TextField, 'Search foods');
+      await tester.enterText(searchField, 'd');
+      await tester.pump(const Duration(milliseconds: 500));
+      expect(find.textContaining('Debounced Result'), findsNothing);
+
+      await tester.pump(const Duration(milliseconds: 600));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('Debounced Result'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'typing again resets the 1 second debounce timer',
+    (tester) async {
+      await pumpAddFoodScreen(
+        tester,
+        db: db,
+        externalSource: _FakeFoodSource(
+          searchResults: const [
+            FoodResult(
+              name: 'Debounced Result',
+              kcalPer100g: 3,
+              proteinPer100g: 3,
+              fatPer100g: 3,
+              carbsPer100g: 3,
+            ),
+          ],
+        ),
+      );
+
+      final searchField = find.widgetWithText(TextField, 'Search foods');
+      await tester.enterText(searchField, 'd');
+      await tester.pump(const Duration(milliseconds: 700));
+      await tester.enterText(searchField, 'de');
+      await tester.pump(const Duration(milliseconds: 700));
+      expect(find.textContaining('Debounced Result'), findsNothing);
+
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('Debounced Result'), findsOneWidget);
     },
   );
 

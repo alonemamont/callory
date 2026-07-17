@@ -8,11 +8,13 @@ class NumberField extends StatefulWidget {
     this.fieldKey,
     required this.controller,
     required this.labelText,
+    this.autofocus = false,
   });
 
   final Key? fieldKey;
   final TextEditingController controller;
   final String labelText;
+  final bool autofocus;
 
   @override
   State<NumberField> createState() => _NumberFieldState();
@@ -49,6 +51,7 @@ class _NumberFieldState extends State<NumberField> {
       key: widget.fieldKey,
       controller: widget.controller,
       focusNode: _focusNode,
+      autofocus: widget.autofocus,
       decoration: InputDecoration(labelText: widget.labelText),
       keyboardType: TextInputType.number,
     );

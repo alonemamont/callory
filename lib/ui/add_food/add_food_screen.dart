@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:callory/db/database.dart';
 import 'package:callory/domain/food_source.dart';
 import 'package:callory/l10n/app_localizations.dart';
@@ -22,7 +24,7 @@ class _AddFoodScreenState extends ConsumerState<AddFoodScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 4, vsync: this);
+    _tabController = TabController(length: 4, vsync: this, initialIndex: 1);
   }
 
   @override
@@ -154,11 +156,10 @@ class _RecentTabState extends ConsumerState<_RecentTab> {
                         onPressed: () => _toggleFavorite(result),
                       ),
                       onTap: () async {
-                        await showEditableFoodDialog(
+                        await showLogExistingFoodDialog(
                           context: context,
                           ref: ref,
-                          initial: result,
-                          barcode: result.barcode,
+                          food: result,
                         );
                         if (mounted) {
                           _refresh();
@@ -180,6 +181,18 @@ class _SearchTabState extends ConsumerState<_SearchTab> {
   List<FoodResult> _results = [];
   var _updatingFavorite = false;
   int _searchGeneration = 0;
+  Timer? _debounce;
+
+  @override
+  void dispose() {
+    _debounce?.cancel();
+    super.dispose();
+  }
+
+  void _onQueryChanged(String query) {
+    _debounce?.cancel();
+    _debounce = Timer(const Duration(seconds: 1), () => _search(query));
+  }
 
   Future<void> _search(String query) async {
     final generation = ++_searchGeneration;
@@ -257,6 +270,7 @@ class _SearchTabState extends ConsumerState<_SearchTab> {
           child: TextField(
             controller: _controller,
             decoration: InputDecoration(labelText: loc.addFoodSearchLabel),
+            onChanged: _onQueryChanged,
             onSubmitted: _search,
           ),
         ),

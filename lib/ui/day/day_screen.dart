@@ -94,20 +94,20 @@ class DayScreen extends ConsumerWidget {
     ref.read(selectedDayProvider.notifier).state = picked;
   }
 
-  ({double kcal, double protein, double fat, double carbs}) _sumTotals(
-    List<DiaryEntry> entries,
-  ) {
-    var kcal = 0.0, protein = 0.0, fat = 0.0, carbs = 0.0;
-    for (final e in entries) {
-      kcal += e.kcalSnapshot;
-      protein += e.proteinSnapshot;
-      fat += e.fatSnapshot;
-      carbs += e.carbsSnapshot;
-    }
-    return (kcal: kcal, protein: protein, fat: fat, carbs: carbs);
-  }
-
   String _formatDate(DateTime date) => '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+}
+
+({double kcal, double protein, double fat, double carbs}) _sumTotals(
+  List<DiaryEntry> entries,
+) {
+  var kcal = 0.0, protein = 0.0, fat = 0.0, carbs = 0.0;
+  for (final e in entries) {
+    kcal += e.kcalSnapshot;
+    protein += e.proteinSnapshot;
+    fat += e.fatSnapshot;
+    carbs += e.carbsSnapshot;
+  }
+  return (kcal: kcal, protein: protein, fat: fat, carbs: carbs);
 }
 
 class _GoalProgress extends StatelessWidget {
@@ -164,9 +164,15 @@ class _MealSection extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final loc = AppLocalizations.of(context)!;
+    final mealTotal = _sumTotals(entries);
     return ExpansionTile(
       initiallyExpanded: isLatest,
       title: Text(loc.dayMealSection(meal.mealNumber), style: Theme.of(context).textTheme.titleMedium),
+      subtitle: Text(
+        'Σ ${loc.dayEntryKcal(mealTotal.kcal.round())} · '
+        '${mealTotal.protein.round()}/${mealTotal.fat.round()}/${mealTotal.carbs.round()} '
+        '${loc.dayEntryMacroSuffix}',
+      ),
       children: [
         for (final entry in entries)
           ListTile(
