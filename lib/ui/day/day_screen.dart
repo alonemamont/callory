@@ -57,9 +57,14 @@ class DayScreen extends ConsumerWidget {
                     ? Center(child: Text(loc.dayNoMealsLoggedYet))
                     : ListView(
                         children: meals
-                            .map((meal) => _MealSection(
-                                  meal: meal,
-                                  entries: entries.where((e) => e.mealId == meal.id).toList(),
+                            .reversed
+                            .toList()
+                            .asMap()
+                            .entries
+                            .map((e) => _MealSection(
+                                  meal: e.value,
+                                  entries: entries.where((entry) => entry.mealId == e.value.id).toList(),
+                                  isLatest: e.key == 0,
                                 ))
                             .toList(),
                       ),
@@ -135,18 +140,16 @@ class _ProgressRow extends StatelessWidget {
 class _MealSection extends ConsumerWidget {
   final Meal meal;
   final List<DiaryEntry> entries;
-  const _MealSection({required this.meal, required this.entries});
+  final bool isLatest;
+  const _MealSection({required this.meal, required this.entries, required this.isLatest});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final loc = AppLocalizations.of(context)!;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    return ExpansionTile(
+      initiallyExpanded: isLatest,
+      title: Text(loc.dayMealSection(meal.mealNumber), style: Theme.of(context).textTheme.titleMedium),
       children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-          child: Text(loc.dayMealSection(meal.mealNumber), style: Theme.of(context).textTheme.titleMedium),
-        ),
         for (final entry in entries)
           ListTile(
             title: Text(entry.foodNameSnapshot),
