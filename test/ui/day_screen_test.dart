@@ -276,4 +276,38 @@ void main() {
       await db.close();
     },
   );
+
+  testWidgets(
+    'tapping the app bar date opens a datepicker that jumps to the picked day',
+    (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+      final db = AppDatabase.forTesting(NativeDatabase.memory());
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            databaseProvider.overrideWithValue(db),
+            settingsServiceProvider.overrideWithValue(SettingsService(prefs)),
+            selectedDayProvider.overrideWith((ref) => DateTime(2026, 7, 15)),
+          ],
+          child: wrapWithLocalizations(const DayScreen()),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('2026-07-15'), findsOneWidget);
+
+      await tester.tap(find.text('2026-07-15'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('20'));
+      await tester.tap(find.text('OK'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('2026-07-20'), findsOneWidget);
+
+      await db.close();
+    },
+  );
 }
