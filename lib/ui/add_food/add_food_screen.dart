@@ -154,11 +154,10 @@ class _RecentTabState extends ConsumerState<_RecentTab> {
                         onPressed: () => _toggleFavorite(result),
                       ),
                       onTap: () async {
-                        await showEditableFoodDialog(
+                        await showLogExistingFoodDialog(
                           context: context,
                           ref: ref,
-                          initial: result,
-                          barcode: result.barcode,
+                          food: result,
                         );
                         if (mounted) {
                           _refresh();

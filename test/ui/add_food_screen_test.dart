@@ -460,14 +460,17 @@ void main() {
     expect(find.byIcon(Icons.star), findsOneWidget);
   });
 
-  testWidgets('tapping a recent row opens the existing dialog', (tester) async {
+  testWidgets('tapping a recent row opens the grams-only add-to-meal dialog', (
+    tester,
+  ) async {
     await seedUsedFood(db, name: 'Recent Rice', isFavorite: true);
     await pumpAddFoodScreen(tester, db: db);
 
     await tester.tap(find.text('Recent Rice'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Food details'), findsOneWidget);
+    expect(find.widgetWithText(TextField, 'Grams eaten'), findsOneWidget);
+    expect(find.widgetWithText(TextField, 'Kcal / 100g'), findsNothing);
   });
 
   testWidgets('local search result favorite toggle does not open dialog', (
