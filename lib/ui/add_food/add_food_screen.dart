@@ -503,7 +503,7 @@ Future<bool> showEditableFoodDialog({
       carbsPer100g: carbsPer100g,
     );
     await foodRepo.setFavorite(privateFoodId, isFavorite);
-    await _logEntry(
+    await logDiaryEntry(
       ref,
       privateFoodId: privateFoodId,
       name: nameController.text,
@@ -531,7 +531,7 @@ Future<bool> showEditableFoodDialog({
     source: source,
     isFavorite: isFavorite,
   );
-  await _logEntry(
+  await logDiaryEntry(
     ref,
     privateFoodId: newId,
     name: nameController.text,
@@ -544,7 +544,7 @@ Future<bool> showEditableFoodDialog({
   return true;
 }
 
-Future<void> _logEntry(
+Future<void> logDiaryEntry(
   WidgetRef ref, {
   required int privateFoodId,
   required String name,
