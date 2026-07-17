@@ -19,7 +19,10 @@ class DayScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(_formatDate(selectedDay)),
+        title: InkWell(
+          onTap: () => _pickDate(context, ref, selectedDay),
+          child: Text(_formatDate(selectedDay)),
+        ),
         leading: IconButton(
           icon: const Icon(Icons.chevron_left),
           onPressed: () => ref.read(selectedDayProvider.notifier).state =
@@ -74,6 +77,21 @@ class DayScreen extends ConsumerWidget {
         },
       ),
     );
+  }
+
+  Future<void> _pickDate(
+    BuildContext context,
+    WidgetRef ref,
+    DateTime selectedDay,
+  ) async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: selectedDay,
+      firstDate: DateTime(2000),
+      lastDate: DateTime(2100),
+    );
+    if (picked == null) return;
+    ref.read(selectedDayProvider.notifier).state = picked;
   }
 
   ({double kcal, double protein, double fat, double carbs}) _sumTotals(
