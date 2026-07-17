@@ -271,6 +271,9 @@ class AppLocalizationsRu extends AppLocalizations {
   String get addFoodNoProductsYet => 'Пока нет продуктов';
 
   @override
+  String get addFoodNoSearchResults => 'Совпадений не найдено';
+
+  @override
   String get dayNoMealsLoggedYet => 'Пока нет записей о приёмах пищи';
 
   @override

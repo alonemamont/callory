@@ -290,6 +290,29 @@ void main() {
     expect(find.text('Walnuts'), findsOneWidget);
   });
 
+  testWidgets('search with no matches shows a distinct message from an empty library', (tester) async {
+    final foodRepo = FoodRepository(db);
+    await foodRepo.insertFood(
+      name: 'Almonds',
+      kcalPer100g: 579,
+      proteinPer100g: 21,
+      fatPer100g: 50,
+      carbsPer100g: 22,
+      source: FoodSourceType.manual,
+    );
+
+    await pumpAddFoodScreen(tester);
+
+    expect(find.text('Almonds'), findsOneWidget);
+
+    await tester.enterText(find.widgetWithText(TextField, 'Search foods'), 'xyz');
+    await tester.pumpAndSettle();
+
+    expect(find.text('Almonds'), findsNothing);
+    expect(find.text('No matching products'), findsOneWidget);
+    expect(find.text('No products yet'), findsNothing);
+  });
+
   testWidgets('tapping the star toggles favorite and persists across refresh', (tester) async {
     final foodRepo = FoodRepository(db);
     await foodRepo.insertFood(

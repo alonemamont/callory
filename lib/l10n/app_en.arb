@@ -109,6 +109,7 @@
   "addFoodAddProductButton": "Add product",
   "addFoodAddProductDialogTitle": "New product",
   "addFoodNoProductsYet": "No products yet",
+  "addFoodNoSearchResults": "No matching products",
 
   "dayNoMealsLoggedYet": "No meals logged yet",
   "dayLabelKcal": "Kcal",

@@ -230,7 +230,11 @@ class _ManualTabState extends ConsumerState<ManualTab> {
                       .toList();
 
               if (filtered.isEmpty) {
-                return Center(child: Text(loc.addFoodNoProductsYet));
+                return Center(
+                  child: Text(
+                    all.isEmpty ? loc.addFoodNoProductsYet : loc.addFoodNoSearchResults,
+                  ),
+                );
               }
 
               return ListView.builder(

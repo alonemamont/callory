@@ -266,6 +266,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get addFoodNoProductsYet => 'No products yet';
 
   @override
+  String get addFoodNoSearchResults => 'No matching products';
+
+  @override
   String get dayNoMealsLoggedYet => 'No meals logged yet';
 
   @override
