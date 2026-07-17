@@ -2,6 +2,7 @@ import 'package:callory/data/food_repository.dart';
 import 'package:callory/db/database.dart';
 import 'package:callory/domain/food_source.dart';
 import 'package:callory/providers/providers.dart';
+import 'package:callory/ui/add_food/add_food_screen.dart';
 import 'package:callory/ui/add_food/manual_tab.dart';
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
@@ -196,5 +197,117 @@ void main() {
 
     expect(find.text('Grams eaten must be a positive number'), findsOneWidget);
     expect(await db.select(db.diaryEntries).get(), isEmpty);
+  });
+
+  Future<void> pumpAddFoodScreen(WidgetTester tester) async {
+    final prefs = await SharedPreferences.getInstance();
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          databaseProvider.overrideWithValue(db),
+          settingsServiceProvider.overrideWithValue(SettingsService(prefs)),
+        ],
+        child: wrapWithLocalizations(const AddFoodScreen()),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Manual'));
+    await tester.pumpAndSettle();
+  }
+
+  testWidgets('adding a product shows it in the list below with no diary entry', (tester) async {
+    await pumpAddFoodScreen(tester);
+
+    expect(find.text('No products yet'), findsOneWidget);
+
+    await tester.tap(find.text('Add product'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.widgetWithText(TextField, 'Name'), 'Banana');
+    await tester.enterText(find.widgetWithText(TextField, 'Kcal / 100g'), '89');
+    await tester.enterText(find.widgetWithText(TextField, 'Protein / 100g'), '1');
+    await tester.enterText(find.widgetWithText(TextField, 'Fat / 100g'), '0');
+    await tester.enterText(find.widgetWithText(TextField, 'Carbs / 100g'), '23');
+    await tester.tap(find.text('Save'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Banana'), findsOneWidget);
+    expect(await db.select(db.diaryEntries).get(), isEmpty);
+  });
+
+  testWidgets('tapping a listed product opens the log-existing dialog and logs an entry', (tester) async {
+    final foodRepo = FoodRepository(db);
+    await foodRepo.insertFood(
+      name: 'Chicken Breast',
+      kcalPer100g: 165,
+      proteinPer100g: 31,
+      fatPer100g: 4,
+      carbsPer100g: 0,
+      source: FoodSourceType.manual,
+    );
+
+    await pumpAddFoodScreen(tester);
+
+    await tester.tap(find.text('Chicken Breast'));
+    await tester.pumpAndSettle();
+    expect(find.widgetWithText(TextField, 'Kcal / 100g'), findsNothing);
+    await tester.enterText(find.widgetWithText(TextField, 'Grams eaten'), '150');
+    await tester.tap(find.text('Save'));
+    await tester.pumpAndSettle();
+
+    final entries = await db.select(db.diaryEntries).get();
+    expect(entries, hasLength(1));
+    expect(entries.single.grams, 150);
+  });
+
+  testWidgets('search filters the product list by name', (tester) async {
+    final foodRepo = FoodRepository(db);
+    await foodRepo.insertFood(
+      name: 'Almonds',
+      kcalPer100g: 579,
+      proteinPer100g: 21,
+      fatPer100g: 50,
+      carbsPer100g: 22,
+      source: FoodSourceType.manual,
+    );
+    await foodRepo.insertFood(
+      name: 'Walnuts',
+      kcalPer100g: 654,
+      proteinPer100g: 15,
+      fatPer100g: 65,
+      carbsPer100g: 14,
+      source: FoodSourceType.manual,
+    );
+
+    await pumpAddFoodScreen(tester);
+
+    expect(find.text('Almonds'), findsOneWidget);
+    expect(find.text('Walnuts'), findsOneWidget);
+
+    await tester.enterText(find.widgetWithText(TextField, 'Search foods'), 'wal');
+    await tester.pumpAndSettle();
+
+    expect(find.text('Almonds'), findsNothing);
+    expect(find.text('Walnuts'), findsOneWidget);
+  });
+
+  testWidgets('tapping the star toggles favorite and persists across refresh', (tester) async {
+    final foodRepo = FoodRepository(db);
+    await foodRepo.insertFood(
+      name: 'Greek Yogurt',
+      kcalPer100g: 59,
+      proteinPer100g: 10,
+      fatPer100g: 0,
+      carbsPer100g: 4,
+      source: FoodSourceType.manual,
+    );
+
+    await pumpAddFoodScreen(tester);
+
+    await tester.tap(find.byIcon(Icons.star_border));
+    await tester.pumpAndSettle();
+
+    expect(find.byIcon(Icons.star), findsOneWidget);
+    final foods = await db.select(db.privateFoods).get();
+    expect(foods.single.isFavorite, true);
   });
 }

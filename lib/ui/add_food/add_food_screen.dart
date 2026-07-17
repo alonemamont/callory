@@ -2,6 +2,7 @@ import 'package:callory/db/database.dart';
 import 'package:callory/domain/food_source.dart';
 import 'package:callory/l10n/app_localizations.dart';
 import 'package:callory/providers/providers.dart';
+import 'package:callory/ui/add_food/manual_tab.dart';
 import 'package:callory/ui/widgets/number_field.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -52,7 +53,7 @@ class _AddFoodScreenState extends ConsumerState<AddFoodScreen>
           _RecentTab(),
           _SearchTab(),
           _BarcodeTab(),
-          _ManualTab(),
+          ManualTab(),
         ],
       ),
     );
@@ -342,38 +343,6 @@ class _BarcodeTabState extends ConsumerState<_BarcodeTab> {
           _handlingDetection = false;
         }
       },
-    );
-  }
-}
-
-class _ManualTab extends ConsumerWidget {
-  const _ManualTab();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final loc = AppLocalizations.of(context)!;
-    return Center(
-      child: ElevatedButton(
-        onPressed: () async {
-          final saved = await showEditableFoodDialog(
-            context: context,
-            ref: ref,
-            initial: const FoodResult(
-              name: '',
-              kcalPer100g: 0,
-              proteinPer100g: 0,
-              fatPer100g: 0,
-              carbsPer100g: 0,
-            ),
-          );
-          if (saved && context.mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(loc.addFoodSavedMessage)),
-            );
-          }
-        },
-        child: Text(loc.addFoodAddManuallyButton),
-      ),
     );
   }
 }

@@ -162,3 +162,103 @@ Future<bool> showLogExistingFoodDialog({
   );
   return true;
 }
+
+class ManualTab extends ConsumerStatefulWidget {
+  const ManualTab({super.key});
+
+  @override
+  ConsumerState<ManualTab> createState() => _ManualTabState();
+}
+
+class _ManualTabState extends ConsumerState<ManualTab> {
+  late Future<List<FoodResult>> _allFoods;
+  var _query = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _allFoods = ref.read(foodRepositoryProvider).getAllFoods();
+  }
+
+  void _refresh() {
+    setState(() {
+      _allFoods = ref.read(foodRepositoryProvider).getAllFoods();
+    });
+  }
+
+  Future<void> _toggleFavorite(FoodResult food) async {
+    await ref
+        .read(foodRepositoryProvider)
+        .setFavorite(food.existingPrivateFoodId!, !food.isFavorite);
+    if (mounted) _refresh();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context)!;
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.all(12),
+          child: ElevatedButton(
+            onPressed: () async {
+              final saved = await showAddProductDialog(context: context, ref: ref);
+              if (saved && mounted) _refresh();
+            },
+            child: Text(loc.addFoodAddProductButton),
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          child: TextField(
+            decoration: InputDecoration(labelText: loc.addFoodSearchLabel),
+            onChanged: (value) => setState(() => _query = value),
+          ),
+        ),
+        Expanded(
+          child: FutureBuilder<List<FoodResult>>(
+            future: _allFoods,
+            builder: (context, snapshot) {
+              if (!snapshot.hasData) {
+                return const Center(child: CircularProgressIndicator());
+              }
+              final all = snapshot.data ?? const <FoodResult>[];
+              final filtered = _query.isEmpty
+                  ? all
+                  : all
+                      .where((f) => f.name.toLowerCase().contains(_query.toLowerCase()))
+                      .toList();
+
+              if (filtered.isEmpty) {
+                return Center(child: Text(loc.addFoodNoProductsYet));
+              }
+
+              return ListView.builder(
+                itemCount: filtered.length,
+                itemBuilder: (context, index) {
+                  final food = filtered[index];
+                  return ListTile(
+                    title: Text(food.name),
+                    subtitle: Text(loc.addFoodKcalPer100g(food.kcalPer100g.round())),
+                    trailing: IconButton(
+                      icon: Icon(food.isFavorite ? Icons.star : Icons.star_border),
+                      onPressed: () => _toggleFavorite(food),
+                    ),
+                    onTap: () async {
+                      final saved = await showLogExistingFoodDialog(
+                        context: context,
+                        ref: ref,
+                        food: food,
+                      );
+                      if (saved && mounted) _refresh();
+                    },
+                  );
+                },
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+}
