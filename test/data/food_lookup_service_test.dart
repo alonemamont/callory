@@ -44,6 +44,38 @@ void main() {
     expect(results.last.name, 'Generic Yogurt');
   });
 
+  test('searchStream emits private-only results before the merged list', () async {
+    final private = _FakeSource(searchResults: [
+      const FoodResult(
+        name: 'My Yogurt',
+        kcalPer100g: 90,
+        proteinPer100g: 10,
+        fatPer100g: 4,
+        carbsPer100g: 4,
+        existingPrivateFoodId: 1,
+      ),
+    ]);
+    final external = _FakeSource(searchResults: [
+      const FoodResult(
+        name: 'Generic Yogurt',
+        kcalPer100g: 80,
+        proteinPer100g: 8,
+        fatPer100g: 3,
+        carbsPer100g: 5,
+      ),
+    ]);
+    final service = FoodLookupService(private, external);
+
+    final events = await service.searchStream('yogurt').toList();
+
+    expect(events, hasLength(2));
+    expect(events.first, hasLength(1));
+    expect(events.first.single.name, 'My Yogurt');
+    expect(events.last, hasLength(2));
+    expect(events.last.first.name, 'My Yogurt');
+    expect(events.last.last.name, 'Generic Yogurt');
+  });
+
   test('search keeps local favorite state ahead of external results', () async {
     final private = _FakeSource(searchResults: [
       const FoodResult(

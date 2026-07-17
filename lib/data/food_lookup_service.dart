@@ -5,8 +5,10 @@ class FoodLookupService {
   final FoodSource externalSource;
   FoodLookupService(this.privateSource, this.externalSource);
 
-  Future<List<FoodResult>> search(String query) async {
+  Stream<List<FoodResult>> searchStream(String query) async* {
     final privateResults = await privateSource.searchByName(query);
+    yield privateResults;
+
     final externalResults = await externalSource.searchByName(query);
     final mergedResults = <FoodResult>[...privateResults];
     final seenPrivateIds = privateResults
@@ -33,8 +35,10 @@ class FoodLookupService {
       mergedResults.add(externalResult);
     }
 
-    return mergedResults;
+    yield mergedResults;
   }
+
+  Future<List<FoodResult>> search(String query) => searchStream(query).last;
 
   Future<FoodResult?> lookupBarcode(String barcode) async {
     final privateMatch = await privateSource.lookupBarcode(barcode);
