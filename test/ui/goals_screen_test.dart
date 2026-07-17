@@ -196,4 +196,135 @@ void main() {
 
     await db.close();
   });
+
+  testWidgets('manual mode: Save disables after saving, re-enables on edit, disables again on revert', (tester) async {
+    final db = AppDatabase.forTesting(NativeDatabase.memory());
+
+    await tester.pumpWidget(ProviderScope(
+      overrides: [databaseProvider.overrideWithValue(db)],
+      child: wrapWithLocalizations(const GoalsScreen()),
+    ));
+    await tester.pumpAndSettle();
+
+    ElevatedButton saveButton() =>
+        tester.widget<ElevatedButton>(find.byKey(const Key('saveGoalsButton')));
+
+    // No goals saved yet: button starts enabled even though nothing was typed.
+    expect(saveButton().onPressed, isNotNull);
+
+    await tester.enterText(find.byKey(const Key('manualKcalField')), '2200');
+    await tester.tap(find.byKey(const Key('saveGoalsButton')));
+    await tester.pumpAndSettle();
+
+    // Right after saving, the form matches what was just saved: disabled.
+    expect(saveButton().onPressed, isNull);
+
+    // Editing a field re-enables it.
+    await tester.enterText(find.byKey(const Key('manualKcalField')), '2300');
+    await tester.pumpAndSettle();
+    expect(saveButton().onPressed, isNotNull);
+
+    // Reverting the edit back to the saved value disables it again.
+    await tester.enterText(find.byKey(const Key('manualKcalField')), '2200');
+    await tester.pumpAndSettle();
+    expect(saveButton().onPressed, isNull);
+
+    await db.close();
+  });
+
+  testWidgets('calculated mode: editing a field after save re-enables Save, reverting disables it', (tester) async {
+    final db = AppDatabase.forTesting(NativeDatabase.memory());
+
+    await tester.pumpWidget(ProviderScope(
+      overrides: [databaseProvider.overrideWithValue(db)],
+      child: wrapWithLocalizations(const GoalsScreen()),
+    ));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Calculated'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const Key('calcAgeField')), '30');
+    await tester.enterText(find.byKey(const Key('calcWeightField')), '80');
+    await tester.enterText(find.byKey(const Key('calcHeightField')), '180');
+    await tester.tap(find.byKey(const Key('saveGoalsButton')));
+    await tester.pumpAndSettle();
+
+    ElevatedButton saveButton() =>
+        tester.widget<ElevatedButton>(find.byKey(const Key('saveGoalsButton')));
+    expect(saveButton().onPressed, isNull);
+
+    await tester.enterText(find.byKey(const Key('calcAgeField')), '31');
+    await tester.pumpAndSettle();
+    expect(saveButton().onPressed, isNotNull);
+
+    await tester.enterText(find.byKey(const Key('calcAgeField')), '30');
+    await tester.pumpAndSettle();
+    expect(saveButton().onPressed, isNull);
+
+    await db.close();
+  });
+
+  testWidgets('switching mode after a save re-enables Save even with unchanged fields', (tester) async {
+    final db = AppDatabase.forTesting(NativeDatabase.memory());
+
+    await tester.pumpWidget(ProviderScope(
+      overrides: [databaseProvider.overrideWithValue(db)],
+      child: wrapWithLocalizations(const GoalsScreen()),
+    ));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Calculated'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const Key('calcAgeField')), '30');
+    await tester.enterText(find.byKey(const Key('calcWeightField')), '80');
+    await tester.enterText(find.byKey(const Key('calcHeightField')), '180');
+    await tester.tap(find.byKey(const Key('saveGoalsButton')));
+    await tester.pumpAndSettle();
+
+    ElevatedButton saveButton() =>
+        tester.widget<ElevatedButton>(find.byKey(const Key('saveGoalsButton')));
+    expect(saveButton().onPressed, isNull);
+
+    await tester.tap(find.text('Manual'));
+    await tester.pumpAndSettle();
+    expect(saveButton().onPressed, isNotNull);
+
+    await tester.tap(find.text('Calculated'));
+    await tester.pumpAndSettle();
+    expect(saveButton().onPressed, isNull);
+
+    await db.close();
+  });
+
+  testWidgets('reopening Goals after saving loads with Save disabled', (tester) async {
+    final db = AppDatabase.forTesting(NativeDatabase.memory());
+
+    await tester.pumpWidget(ProviderScope(
+      overrides: [databaseProvider.overrideWithValue(db)],
+      child: wrapWithLocalizations(const GoalsScreen()),
+    ));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byKey(const Key('manualKcalField')), '2000');
+    await tester.tap(find.byKey(const Key('saveGoalsButton')));
+    await tester.pumpAndSettle();
+
+    // Simulate navigating away and back: the home shell replaces the tab
+    // body widget rather than using an IndexedStack, so GoalsScreen state is
+    // disposed and rebuilt from scratch (see the existing "reopening Goals"
+    // test above for the same pattern).
+    await tester.pumpWidget(const MaterialApp(home: SizedBox()));
+    await tester.pumpAndSettle();
+    await tester.pumpWidget(ProviderScope(
+      overrides: [databaseProvider.overrideWithValue(db)],
+      child: wrapWithLocalizations(const GoalsScreen()),
+    ));
+    await tester.pumpAndSettle();
+
+    final saveButton =
+        tester.widget<ElevatedButton>(find.byKey(const Key('saveGoalsButton')));
+    expect(saveButton.onPressed, isNull);
+
+    await db.close();
+  });
 }
