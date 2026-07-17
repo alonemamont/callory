@@ -57,6 +57,7 @@ class _GoalsScreenState extends ConsumerState<GoalsScreen> {
   void dispose() {
     for (final c in _textControllers) {
       c.removeListener(_onFieldChanged);
+      c.dispose();
     }
     super.dispose();
   }
