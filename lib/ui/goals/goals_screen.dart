@@ -32,11 +32,47 @@ class _GoalsScreenState extends ConsumerState<GoalsScreen> {
   ActivityLevel _activityLevel = ActivityLevel.sedentary;
   GoalType _goalType = GoalType.maintain;
 
+  _Mode? _baselineMode;
+  String? _baselineKcalText;
+  String? _baselineProteinText;
+  String? _baselineFatText;
+  String? _baselineCarbsText;
+  String? _baselineAgeText;
+  String? _baselineWeightText;
+  String? _baselineHeightText;
+  Sex? _baselineSex;
+  ActivityLevel? _baselineActivityLevel;
+  GoalType? _baselineGoalType;
+
   @override
   void initState() {
     super.initState();
+    for (final c in _textControllers) {
+      c.addListener(_onFieldChanged);
+    }
     _loadExistingGoals();
   }
+
+  @override
+  void dispose() {
+    for (final c in _textControllers) {
+      c.removeListener(_onFieldChanged);
+      c.dispose();
+    }
+    super.dispose();
+  }
+
+  List<TextEditingController> get _textControllers => [
+        _kcalController,
+        _proteinController,
+        _fatController,
+        _carbsController,
+        _ageController,
+        _weightController,
+        _heightController,
+      ];
+
+  void _onFieldChanged() => setState(() {});
 
   Future<void> _loadExistingGoals() async {
     final goals = await ref.read(goalsRepositoryProvider).getGoals();
@@ -61,6 +97,40 @@ class _GoalsScreenState extends ConsumerState<GoalsScreen> {
       if (goals.goalType != null) _goalType = GoalType.values.byName(goals.goalType!);
       _loading = false;
     });
+    _captureBaseline();
+  }
+
+  void _captureBaseline() {
+    _baselineMode = _mode;
+    _baselineKcalText = _kcalController.text;
+    _baselineProteinText = _proteinController.text;
+    _baselineFatText = _fatController.text;
+    _baselineCarbsText = _carbsController.text;
+    _baselineAgeText = _ageController.text;
+    _baselineWeightText = _weightController.text;
+    _baselineHeightText = _heightController.text;
+    _baselineSex = _sex;
+    _baselineActivityLevel = _activityLevel;
+    _baselineGoalType = _goalType;
+  }
+
+  bool get _hasBaseline => _baselineMode != null;
+
+  bool get _hasChanges {
+    if (!_hasBaseline) return true;
+    if (_mode != _baselineMode) return true;
+    if (_mode == _Mode.manual) {
+      return _kcalController.text != _baselineKcalText ||
+          _proteinController.text != _baselineProteinText ||
+          _fatController.text != _baselineFatText ||
+          _carbsController.text != _baselineCarbsText;
+    }
+    return _sex != _baselineSex ||
+        _ageController.text != _baselineAgeText ||
+        _weightController.text != _baselineWeightText ||
+        _heightController.text != _baselineHeightText ||
+        _activityLevel != _baselineActivityLevel ||
+        _goalType != _baselineGoalType;
   }
 
   String _formatNumber(double value) {
@@ -116,6 +186,7 @@ class _GoalsScreenState extends ConsumerState<GoalsScreen> {
           dailyCarbs: double.tryParse(_carbsController.text) ?? 0,
         );
         if (!mounted) return;
+        setState(_captureBaseline);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(loc.goalsSavedMessage)),
         );
@@ -137,6 +208,7 @@ class _GoalsScreenState extends ConsumerState<GoalsScreen> {
           _proteinController.text = _formatNumber(result.proteinG);
           _fatController.text = _formatNumber(result.fatG);
           _carbsController.text = _formatNumber(result.carbsG);
+          _captureBaseline();
         });
       }
     } catch (e) {
@@ -239,7 +311,7 @@ class _GoalsScreenState extends ConsumerState<GoalsScreen> {
           const SizedBox(height: 16),
           ElevatedButton(
             key: const Key('saveGoalsButton'),
-            onPressed: _save,
+            onPressed: _hasChanges ? _save : null,
             child: Text(loc.goalsSaveButton),
           ),
         ],
