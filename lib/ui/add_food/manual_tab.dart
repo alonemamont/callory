@@ -93,3 +93,72 @@ Future<bool> showAddProductDialog({
       );
   return true;
 }
+
+Future<bool> showLogExistingFoodDialog({
+  required BuildContext context,
+  required WidgetRef ref,
+  required FoodResult food,
+}) async {
+  final loc = AppLocalizations.of(context)!;
+  final gramsController = TextEditingController(text: '100');
+  String? errorText;
+
+  final confirmed = await showDialog<bool>(
+    context: context,
+    builder: (context) => StatefulBuilder(
+      builder: (context, setState) => AlertDialog(
+        title: Text(food.name),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(loc.addFoodKcalPer100g(food.kcalPer100g.round())),
+            Text(
+              '${food.proteinPer100g.round()}/${food.fatPer100g.round()}/'
+              '${food.carbsPer100g.round()} ${loc.dayEntryMacroSuffix}',
+            ),
+            NumberField(controller: gramsController, labelText: loc.addFoodGramsEatenLabel),
+            if (errorText != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Text(
+                  errorText!,
+                  style: TextStyle(color: Theme.of(context).colorScheme.error),
+                ),
+              ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text(loc.addFoodCancelButton),
+          ),
+          TextButton(
+            onPressed: () {
+              final grams = double.tryParse(gramsController.text);
+              if (grams == null || !grams.isFinite || grams <= 0) {
+                setState(() => errorText = loc.addFoodGramsError);
+                return;
+              }
+              Navigator.pop(context, true);
+            },
+            child: Text(loc.addFoodSaveButton),
+          ),
+        ],
+      ),
+    ),
+  );
+
+  if (confirmed != true) return false;
+
+  await logDiaryEntry(
+    ref,
+    privateFoodId: food.existingPrivateFoodId!,
+    name: food.name,
+    grams: double.parse(gramsController.text),
+    kcalPer100g: food.kcalPer100g,
+    proteinPer100g: food.proteinPer100g,
+    fatPer100g: food.fatPer100g,
+    carbsPer100g: food.carbsPer100g,
+  );
+  return true;
+}
