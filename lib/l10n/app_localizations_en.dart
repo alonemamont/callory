@@ -105,6 +105,33 @@ class AppLocalizationsEn extends AppLocalizations {
   String get goalsSaveButton => 'Save';
 
   @override
+  String get goalsSexMale => 'Male';
+
+  @override
+  String get goalsSexFemale => 'Female';
+
+  @override
+  String get goalsActivitySedentary => 'Sedentary';
+
+  @override
+  String get goalsActivityLight => 'Light activity';
+
+  @override
+  String get goalsActivityModerate => 'Moderate activity';
+
+  @override
+  String get goalsActivityHigh => 'High activity';
+
+  @override
+  String get goalsGoalTypeLose => 'Lose weight';
+
+  @override
+  String get goalsGoalTypeMaintain => 'Maintain';
+
+  @override
+  String get goalsGoalTypeGain => 'Gain weight';
+
+  @override
   String get addFoodTitle => 'Add food';
 
   @override
