@@ -246,6 +246,9 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get dayEntryMacroSuffix => 'P/F/C';
+
+  @override
   String get dayGramsEatenLabel => 'Grams eaten';
 
   @override

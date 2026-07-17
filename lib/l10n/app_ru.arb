@@ -74,10 +74,11 @@
   "dayLabelKcal": "Ккал",
   "dayLabelProtein": "Белки",
   "dayLabelFat": "Жиры",
-  "dayLabelCarbs": "Углеводы",
+  "dayLabelCarbs": "Углев-ы",
   "dayMealSection": "Приём {number}",
   "dayEntryGrams": "{grams} г",
   "dayEntryKcal": "{kcal} ккал",
+  "dayEntryMacroSuffix": "Б/Ж/У",
   "dayGramsEatenLabel": "Съедено, г",
   "dayCancelButton": "Отмена",
   "daySaveButton": "Сохранить"

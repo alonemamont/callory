@@ -118,6 +118,7 @@
       "kcal": {"type": "int"}
     }
   },
+  "dayEntryMacroSuffix": "P/F/C",
   "dayGramsEatenLabel": "Grams eaten",
   "dayCancelButton": "Cancel",
   "daySaveButton": "Save"

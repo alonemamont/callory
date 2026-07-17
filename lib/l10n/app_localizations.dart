@@ -536,6 +536,12 @@ abstract class AppLocalizations {
   /// **'{kcal} kcal'**
   String dayEntryKcal(int kcal);
 
+  /// No description provided for @dayEntryMacroSuffix.
+  ///
+  /// In en, this message translates to:
+  /// **'P/F/C'**
+  String get dayEntryMacroSuffix;
+
   /// No description provided for @dayGramsEatenLabel.
   ///
   /// In en, this message translates to:

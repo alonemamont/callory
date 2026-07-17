@@ -229,7 +229,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get dayLabelFat => 'Жиры';
 
   @override
-  String get dayLabelCarbs => 'Углеводы';
+  String get dayLabelCarbs => 'Углев-ы';
 
   @override
   String dayMealSection(int number) {
@@ -245,6 +245,9 @@ class AppLocalizationsRu extends AppLocalizations {
   String dayEntryKcal(int kcal) {
     return '$kcal ккал';
   }
+
+  @override
+  String get dayEntryMacroSuffix => 'Б/Ж/У';
 
   @override
   String get dayGramsEatenLabel => 'Съедено, г';

@@ -151,7 +151,20 @@ class _MealSection extends ConsumerWidget {
           ListTile(
             title: Text(entry.foodNameSnapshot),
             subtitle: Text(loc.dayEntryGrams(entry.grams.round())),
-            trailing: Text(loc.dayEntryKcal(entry.kcalSnapshot.round())),
+            trailing: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(
+                  loc.dayEntryKcal(entry.kcalSnapshot.round()),
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+                Text(
+                  '${entry.proteinSnapshot.round()}/${entry.fatSnapshot.round()}/${entry.carbsSnapshot.round()} ${loc.dayEntryMacroSuffix}',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ],
+            ),
             onTap: () => _showEditGramsDialog(context, ref, entry),
           ),
       ],

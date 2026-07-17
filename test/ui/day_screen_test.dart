@@ -67,6 +67,8 @@ void main() {
 
     expect(find.textContaining('Test Meal Item'), findsOneWidget);
     expect(find.textContaining('Meal 1'), findsOneWidget);
+    expect(find.text('150 kcal'), findsOneWidget);
+    expect(find.text('10/5/10 P/F/C'), findsOneWidget);
 
     await db.close();
   });
