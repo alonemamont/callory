@@ -105,6 +105,33 @@ class AppLocalizationsRu extends AppLocalizations {
   String get goalsSaveButton => 'Сохранить';
 
   @override
+  String get goalsSexMale => 'Мужской';
+
+  @override
+  String get goalsSexFemale => 'Женский';
+
+  @override
+  String get goalsActivitySedentary => 'Малоподвижный';
+
+  @override
+  String get goalsActivityLight => 'Лёгкая активность';
+
+  @override
+  String get goalsActivityModerate => 'Умеренная активность';
+
+  @override
+  String get goalsActivityHigh => 'Высокая активность';
+
+  @override
+  String get goalsGoalTypeLose => 'Похудение';
+
+  @override
+  String get goalsGoalTypeMaintain => 'Поддержание';
+
+  @override
+  String get goalsGoalTypeGain => 'Набор веса';
+
+  @override
   String get addFoodTitle => 'Добавить еду';
 
   @override

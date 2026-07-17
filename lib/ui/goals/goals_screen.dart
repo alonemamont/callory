@@ -67,6 +67,24 @@ class _GoalsScreenState extends ConsumerState<GoalsScreen> {
     return value.toStringAsFixed(1);
   }
 
+  String _sexLabel(AppLocalizations loc, Sex sex) => switch (sex) {
+        Sex.male => loc.goalsSexMale,
+        Sex.female => loc.goalsSexFemale,
+      };
+
+  String _activityLabel(AppLocalizations loc, ActivityLevel level) => switch (level) {
+        ActivityLevel.sedentary => loc.goalsActivitySedentary,
+        ActivityLevel.light => loc.goalsActivityLight,
+        ActivityLevel.moderate => loc.goalsActivityModerate,
+        ActivityLevel.high => loc.goalsActivityHigh,
+      };
+
+  String _goalTypeLabel(AppLocalizations loc, GoalType type) => switch (type) {
+        GoalType.lose => loc.goalsGoalTypeLose,
+        GoalType.maintain => loc.goalsGoalTypeMaintain,
+        GoalType.gain => loc.goalsGoalTypeGain,
+      };
+
   Future<void> _save() async {
     final loc = AppLocalizations.of(context)!;
     final goalsRepo = ref.read(goalsRepositoryProvider);
@@ -159,7 +177,9 @@ class _GoalsScreenState extends ConsumerState<GoalsScreen> {
             DropdownButton<Sex>(
               key: const Key('calcSexField'),
               value: _sex,
-              items: Sex.values.map((s) => DropdownMenuItem(value: s, child: Text(s.name))).toList(),
+              items: Sex.values
+                  .map((s) => DropdownMenuItem(value: s, child: Text(_sexLabel(loc, s))))
+                  .toList(),
               onChanged: (value) => setState(() => _sex = value!),
             ),
             NumberField(
@@ -179,12 +199,16 @@ class _GoalsScreenState extends ConsumerState<GoalsScreen> {
             ),
             DropdownButton<ActivityLevel>(
               value: _activityLevel,
-              items: ActivityLevel.values.map((a) => DropdownMenuItem(value: a, child: Text(a.name))).toList(),
+              items: ActivityLevel.values
+                  .map((a) => DropdownMenuItem(value: a, child: Text(_activityLabel(loc, a))))
+                  .toList(),
               onChanged: (value) => setState(() => _activityLevel = value!),
             ),
             DropdownButton<GoalType>(
               value: _goalType,
-              items: GoalType.values.map((g) => DropdownMenuItem(value: g, child: Text(g.name))).toList(),
+              items: GoalType.values
+                  .map((g) => DropdownMenuItem(value: g, child: Text(_goalTypeLabel(loc, g))))
+                  .toList(),
               onChanged: (value) => setState(() => _goalType = value!),
             ),
           ],

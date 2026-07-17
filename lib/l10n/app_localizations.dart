@@ -272,6 +272,60 @@ abstract class AppLocalizations {
   /// **'Save'**
   String get goalsSaveButton;
 
+  /// No description provided for @goalsSexMale.
+  ///
+  /// In en, this message translates to:
+  /// **'Male'**
+  String get goalsSexMale;
+
+  /// No description provided for @goalsSexFemale.
+  ///
+  /// In en, this message translates to:
+  /// **'Female'**
+  String get goalsSexFemale;
+
+  /// No description provided for @goalsActivitySedentary.
+  ///
+  /// In en, this message translates to:
+  /// **'Sedentary'**
+  String get goalsActivitySedentary;
+
+  /// No description provided for @goalsActivityLight.
+  ///
+  /// In en, this message translates to:
+  /// **'Light activity'**
+  String get goalsActivityLight;
+
+  /// No description provided for @goalsActivityModerate.
+  ///
+  /// In en, this message translates to:
+  /// **'Moderate activity'**
+  String get goalsActivityModerate;
+
+  /// No description provided for @goalsActivityHigh.
+  ///
+  /// In en, this message translates to:
+  /// **'High activity'**
+  String get goalsActivityHigh;
+
+  /// No description provided for @goalsGoalTypeLose.
+  ///
+  /// In en, this message translates to:
+  /// **'Lose weight'**
+  String get goalsGoalTypeLose;
+
+  /// No description provided for @goalsGoalTypeMaintain.
+  ///
+  /// In en, this message translates to:
+  /// **'Maintain'**
+  String get goalsGoalTypeMaintain;
+
+  /// No description provided for @goalsGoalTypeGain.
+  ///
+  /// In en, this message translates to:
+  /// **'Gain weight'**
+  String get goalsGoalTypeGain;
+
   /// No description provided for @addFoodTitle.
   ///
   /// In en, this message translates to:
