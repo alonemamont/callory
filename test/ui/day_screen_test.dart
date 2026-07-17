@@ -210,7 +210,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.textContaining('200 g'), findsOneWidget);
-      expect(find.textContaining('300 kcal'), findsOneWidget);
+      expect(find.text('300 kcal'), findsOneWidget);
 
       await db.close();
     },
@@ -272,6 +272,78 @@ void main() {
 
       expect(find.textContaining('Breakfast A'), findsOneWidget);
       expect(find.textContaining('Breakfast B'), findsOneWidget);
+
+      await db.close();
+    },
+  );
+
+  testWidgets(
+    'meal header shows the total kcal and macros for all its entries, even while collapsed',
+    (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+      final db = AppDatabase.forTesting(NativeDatabase.memory());
+      final diaryRepo = DiaryRepository(db);
+      final today = DateTime.now();
+      final dayStart = DateTime(today.year, today.month, today.day);
+      const gapWindow = Duration(minutes: 90);
+
+      // Meal 1 (Oats+Milk) is older -> sorts second -> starts collapsed.
+      await diaryRepo.addEntry(
+        foodNameSnapshot: 'Oats',
+        grams: 100,
+        kcalPer100g: 150,
+        proteinPer100g: 10,
+        fatPer100g: 5,
+        carbsPer100g: 10,
+        entryDate: dayStart,
+        occurredAt: dayStart.add(const Duration(hours: 8)),
+        gapWindow: gapWindow,
+      );
+      await diaryRepo.addEntry(
+        foodNameSnapshot: 'Milk',
+        grams: 100,
+        kcalPer100g: 60,
+        proteinPer100g: 3,
+        fatPer100g: 3,
+        carbsPer100g: 5,
+        entryDate: dayStart,
+        occurredAt: dayStart.add(const Duration(hours: 8, minutes: 10)),
+        gapWindow: gapWindow,
+      );
+      // Meal 2 (Salad) is newest -> sorts first -> starts expanded.
+      await diaryRepo.addEntry(
+        foodNameSnapshot: 'Salad',
+        grams: 100,
+        kcalPer100g: 90,
+        proteinPer100g: 4,
+        fatPer100g: 2,
+        carbsPer100g: 12,
+        entryDate: dayStart,
+        occurredAt: dayStart.add(const Duration(hours: 14)),
+        gapWindow: gapWindow,
+      );
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            databaseProvider.overrideWithValue(db),
+            settingsServiceProvider.overrideWithValue(SettingsService(prefs)),
+          ],
+          child: wrapWithLocalizations(const DayScreen()),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Meal 1 is collapsed -> its entries aren't in the tree ...
+      expect(find.textContaining('Oats'), findsNothing);
+      // ... but its total is still shown on the (still-visible) header.
+      expect(find.text('Σ 210 kcal · 13/8/15 P/F/C'), findsOneWidget);
+
+      // Meal 2 is expanded; its total is also shown, distinct from its
+      // single entry's own "90 kcal" line.
+      expect(find.text('90 kcal'), findsOneWidget);
+      expect(find.text('Σ 90 kcal · 4/2/12 P/F/C'), findsOneWidget);
 
       await db.close();
     },
