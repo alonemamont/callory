@@ -156,6 +156,53 @@ void main() {
     expect(entries.single.carbsSnapshot, 56);
   });
 
+  testWidgets('log-existing dialog autofocuses the grams field with its text selected', (tester) async {
+    final foodRepo = FoodRepository(db);
+    final id = await foodRepo.insertFood(
+      name: 'Known Oats',
+      kcalPer100g: 380,
+      proteinPer100g: 13,
+      fatPer100g: 7,
+      carbsPer100g: 67,
+      source: FoodSourceType.manual,
+    );
+
+    final prefs = await SharedPreferences.getInstance();
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          databaseProvider.overrideWithValue(db),
+          settingsServiceProvider.overrideWithValue(SettingsService(prefs)),
+        ],
+        child: wrapWithLocalizations(
+          _LogExistingLauncher(
+            food: FoodResult(
+              name: 'Known Oats',
+              kcalPer100g: 380,
+              proteinPer100g: 13,
+              fatPer100g: 7,
+              carbsPer100g: 67,
+              existingPrivateFoodId: id,
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('Open log dialog'));
+    await tester.pumpAndSettle();
+
+    final gramsField = tester.widget<TextField>(
+      find.widgetWithText(TextField, 'Grams eaten'),
+    );
+    expect(gramsField.focusNode!.hasFocus, true);
+
+    final gramsController = gramsField.controller!;
+    expect(
+      gramsController.selection,
+      TextSelection(baseOffset: 0, extentOffset: gramsController.text.length),
+    );
+  });
+
   testWidgets('log-existing dialog rejects a non-positive grams value', (tester) async {
     final foodRepo = FoodRepository(db);
     final id = await foodRepo.insertFood(

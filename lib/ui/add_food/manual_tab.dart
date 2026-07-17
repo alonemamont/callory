@@ -116,7 +116,11 @@ Future<bool> showLogExistingFoodDialog({
               '${food.proteinPer100g.round()}/${food.fatPer100g.round()}/'
               '${food.carbsPer100g.round()} ${loc.dayEntryMacroSuffix}',
             ),
-            NumberField(controller: gramsController, labelText: loc.addFoodGramsEatenLabel),
+            NumberField(
+              controller: gramsController,
+              labelText: loc.addFoodGramsEatenLabel,
+              autofocus: true,
+            ),
             if (errorText != null)
               Padding(
                 padding: const EdgeInsets.only(top: 8),
