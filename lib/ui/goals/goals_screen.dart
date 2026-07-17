@@ -5,6 +5,7 @@ import 'package:callory/domain/bmr_calculator.dart';
 import 'package:callory/l10n/app_localizations.dart';
 import 'package:callory/providers/providers.dart';
 import 'package:callory/ui/widgets/number_field.dart';
+import 'package:callory/ui/widgets/option_picker_tile.dart';
 
 enum _Mode { manual, calculated }
 
@@ -83,6 +84,24 @@ class _GoalsScreenState extends ConsumerState<GoalsScreen> {
         GoalType.lose => loc.goalsGoalTypeLose,
         GoalType.maintain => loc.goalsGoalTypeMaintain,
         GoalType.gain => loc.goalsGoalTypeGain,
+      };
+
+  String _sexDescription(AppLocalizations loc, Sex sex) => switch (sex) {
+        Sex.male => loc.goalsSexMaleDescription,
+        Sex.female => loc.goalsSexFemaleDescription,
+      };
+
+  String _activityDescription(AppLocalizations loc, ActivityLevel level) => switch (level) {
+        ActivityLevel.sedentary => loc.goalsActivitySedentaryDescription,
+        ActivityLevel.light => loc.goalsActivityLightDescription,
+        ActivityLevel.moderate => loc.goalsActivityModerateDescription,
+        ActivityLevel.high => loc.goalsActivityHighDescription,
+      };
+
+  String _goalTypeDescription(AppLocalizations loc, GoalType type) => switch (type) {
+        GoalType.lose => loc.goalsGoalTypeLoseDescription,
+        GoalType.maintain => loc.goalsGoalTypeMaintainDescription,
+        GoalType.gain => loc.goalsGoalTypeGainDescription,
       };
 
   Future<void> _save() async {
@@ -174,13 +193,14 @@ class _GoalsScreenState extends ConsumerState<GoalsScreen> {
               labelText: loc.goalsCarbsLabel,
             ),
           ] else ...[
-            DropdownButton<Sex>(
-              key: const Key('calcSexField'),
-              value: _sex,
-              items: Sex.values
-                  .map((s) => DropdownMenuItem(value: s, child: Text(_sexLabel(loc, s))))
-                  .toList(),
-              onChanged: (value) => setState(() => _sex = value!),
+            OptionPickerTile<Sex>(
+              fieldKey: const Key('calcSexField'),
+              fieldLabel: loc.goalsSexFieldLabel,
+              currentValueLabel: _sexLabel(loc, _sex),
+              options: Sex.values,
+              optionLabel: (s) => _sexLabel(loc, s),
+              optionDescription: (s) => _sexDescription(loc, s),
+              onChanged: (value) => setState(() => _sex = value),
             ),
             NumberField(
               fieldKey: const Key('calcAgeField'),
@@ -197,19 +217,23 @@ class _GoalsScreenState extends ConsumerState<GoalsScreen> {
               controller: _heightController,
               labelText: loc.goalsHeightLabel,
             ),
-            DropdownButton<ActivityLevel>(
-              value: _activityLevel,
-              items: ActivityLevel.values
-                  .map((a) => DropdownMenuItem(value: a, child: Text(_activityLabel(loc, a))))
-                  .toList(),
-              onChanged: (value) => setState(() => _activityLevel = value!),
+            OptionPickerTile<ActivityLevel>(
+              fieldKey: const Key('calcActivityField'),
+              fieldLabel: loc.goalsActivityFieldLabel,
+              currentValueLabel: _activityLabel(loc, _activityLevel),
+              options: ActivityLevel.values,
+              optionLabel: (a) => _activityLabel(loc, a),
+              optionDescription: (a) => _activityDescription(loc, a),
+              onChanged: (value) => setState(() => _activityLevel = value),
             ),
-            DropdownButton<GoalType>(
-              value: _goalType,
-              items: GoalType.values
-                  .map((g) => DropdownMenuItem(value: g, child: Text(_goalTypeLabel(loc, g))))
-                  .toList(),
-              onChanged: (value) => setState(() => _goalType = value!),
+            OptionPickerTile<GoalType>(
+              fieldKey: const Key('calcGoalTypeField'),
+              fieldLabel: loc.goalsGoalTypeFieldLabel,
+              currentValueLabel: _goalTypeLabel(loc, _goalType),
+              options: GoalType.values,
+              optionLabel: (g) => _goalTypeLabel(loc, g),
+              optionDescription: (g) => _goalTypeDescription(loc, g),
+              onChanged: (value) => setState(() => _goalType = value),
             ),
           ],
           const SizedBox(height: 16),

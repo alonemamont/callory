@@ -61,6 +61,18 @@
   "goalsGoalTypeLose": "Lose weight",
   "goalsGoalTypeMaintain": "Maintain",
   "goalsGoalTypeGain": "Gain weight",
+  "goalsSexFieldLabel": "Sex",
+  "goalsActivityFieldLabel": "Activity level",
+  "goalsGoalTypeFieldLabel": "Goal",
+  "goalsSexMaleDescription": "Used in the basal metabolic rate formula (offset +5)",
+  "goalsSexFemaleDescription": "Used in the basal metabolic rate formula (offset −161)",
+  "goalsActivitySedentaryDescription": "Little or no exercise, desk job",
+  "goalsActivityLightDescription": "Light exercise 1–3 days a week",
+  "goalsActivityModerateDescription": "Moderate exercise 3–5 days a week",
+  "goalsActivityHighDescription": "Hard exercise 6–7 days a week",
+  "goalsGoalTypeLoseDescription": "Calorie deficit to lose weight",
+  "goalsGoalTypeMaintainDescription": "Calories at maintenance level, weight stays the same",
+  "goalsGoalTypeGainDescription": "Calorie surplus to gain weight",
 
   "addFoodTitle": "Add food",
   "addFoodTabRecent": "Recent",
@@ -118,6 +130,7 @@
       "kcal": {"type": "int"}
     }
   },
+  "dayEntryMacroSuffix": "P/F/C",
   "dayGramsEatenLabel": "Grams eaten",
   "dayCancelButton": "Cancel",
   "daySaveButton": "Save"

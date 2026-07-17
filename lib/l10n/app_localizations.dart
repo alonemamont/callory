@@ -326,6 +326,78 @@ abstract class AppLocalizations {
   /// **'Gain weight'**
   String get goalsGoalTypeGain;
 
+  /// No description provided for @goalsSexFieldLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Sex'**
+  String get goalsSexFieldLabel;
+
+  /// No description provided for @goalsActivityFieldLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Activity level'**
+  String get goalsActivityFieldLabel;
+
+  /// No description provided for @goalsGoalTypeFieldLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Goal'**
+  String get goalsGoalTypeFieldLabel;
+
+  /// No description provided for @goalsSexMaleDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Used in the basal metabolic rate formula (offset +5)'**
+  String get goalsSexMaleDescription;
+
+  /// No description provided for @goalsSexFemaleDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Used in the basal metabolic rate formula (offset −161)'**
+  String get goalsSexFemaleDescription;
+
+  /// No description provided for @goalsActivitySedentaryDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Little or no exercise, desk job'**
+  String get goalsActivitySedentaryDescription;
+
+  /// No description provided for @goalsActivityLightDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Light exercise 1–3 days a week'**
+  String get goalsActivityLightDescription;
+
+  /// No description provided for @goalsActivityModerateDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Moderate exercise 3–5 days a week'**
+  String get goalsActivityModerateDescription;
+
+  /// No description provided for @goalsActivityHighDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Hard exercise 6–7 days a week'**
+  String get goalsActivityHighDescription;
+
+  /// No description provided for @goalsGoalTypeLoseDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Calorie deficit to lose weight'**
+  String get goalsGoalTypeLoseDescription;
+
+  /// No description provided for @goalsGoalTypeMaintainDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Calories at maintenance level, weight stays the same'**
+  String get goalsGoalTypeMaintainDescription;
+
+  /// No description provided for @goalsGoalTypeGainDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Calorie surplus to gain weight'**
+  String get goalsGoalTypeGainDescription;
+
   /// No description provided for @addFoodTitle.
   ///
   /// In en, this message translates to:
@@ -535,6 +607,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{kcal} kcal'**
   String dayEntryKcal(int kcal);
+
+  /// No description provided for @dayEntryMacroSuffix.
+  ///
+  /// In en, this message translates to:
+  /// **'P/F/C'**
+  String get dayEntryMacroSuffix;
 
   /// No description provided for @dayGramsEatenLabel.
   ///

@@ -67,6 +67,8 @@ void main() {
 
     expect(find.textContaining('Test Meal Item'), findsOneWidget);
     expect(find.textContaining('Meal 1'), findsOneWidget);
+    expect(find.text('150 kcal'), findsOneWidget);
+    expect(find.text('10/5/10 P/F/C'), findsOneWidget);
 
     await db.close();
   });
@@ -252,11 +254,24 @@ void main() {
       );
       await tester.pumpAndSettle();
 
+      // Meal 2 (Lunch A) is newest, so it sorts first and is expanded by
+      // default; Meal 1 (Breakfast A/B) is older, sorts second, and starts
+      // collapsed — its entries aren't in the tree until its header is tapped.
       expect(find.textContaining('Meal 1'), findsOneWidget);
       expect(find.textContaining('Meal 2'), findsOneWidget);
+      expect(
+        tester.getTopLeft(find.textContaining('Meal 2')).dy,
+        lessThan(tester.getTopLeft(find.textContaining('Meal 1')).dy),
+      );
+      expect(find.textContaining('Lunch A'), findsOneWidget);
+      expect(find.textContaining('Breakfast A'), findsNothing);
+      expect(find.textContaining('Breakfast B'), findsNothing);
+
+      await tester.tap(find.textContaining('Meal 1'));
+      await tester.pumpAndSettle();
+
       expect(find.textContaining('Breakfast A'), findsOneWidget);
       expect(find.textContaining('Breakfast B'), findsOneWidget);
-      expect(find.textContaining('Lunch A'), findsOneWidget);
 
       await db.close();
     },

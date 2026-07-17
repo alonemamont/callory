@@ -132,6 +132,51 @@ class AppLocalizationsRu extends AppLocalizations {
   String get goalsGoalTypeGain => 'Набор веса';
 
   @override
+  String get goalsSexFieldLabel => 'Пол';
+
+  @override
+  String get goalsActivityFieldLabel => 'Образ жизни';
+
+  @override
+  String get goalsGoalTypeFieldLabel => 'Цель';
+
+  @override
+  String get goalsSexMaleDescription =>
+      'Используется в формуле расчёта базового обмена веществ (коэффициент +5)';
+
+  @override
+  String get goalsSexFemaleDescription =>
+      'Используется в формуле расчёта базового обмена веществ (коэффициент −161)';
+
+  @override
+  String get goalsActivitySedentaryDescription =>
+      'Мало или нет физической активности, сидячая работа';
+
+  @override
+  String get goalsActivityLightDescription =>
+      'Лёгкие тренировки 1–3 раза в неделю';
+
+  @override
+  String get goalsActivityModerateDescription =>
+      'Умеренные тренировки 3–5 раз в неделю';
+
+  @override
+  String get goalsActivityHighDescription =>
+      'Интенсивные тренировки 6–7 раз в неделю';
+
+  @override
+  String get goalsGoalTypeLoseDescription =>
+      'Дефицит калорий для снижения веса';
+
+  @override
+  String get goalsGoalTypeMaintainDescription =>
+      'Расход калорий на уровне нормы, вес остаётся прежним';
+
+  @override
+  String get goalsGoalTypeGainDescription =>
+      'Профицит калорий для набора массы';
+
+  @override
   String get addFoodTitle => 'Добавить еду';
 
   @override
@@ -229,7 +274,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get dayLabelFat => 'Жиры';
 
   @override
-  String get dayLabelCarbs => 'Углеводы';
+  String get dayLabelCarbs => 'Углев-ы';
 
   @override
   String dayMealSection(int number) {
@@ -245,6 +290,9 @@ class AppLocalizationsRu extends AppLocalizations {
   String dayEntryKcal(int kcal) {
     return '$kcal ккал';
   }
+
+  @override
+  String get dayEntryMacroSuffix => 'Б/Ж/У';
 
   @override
   String get dayGramsEatenLabel => 'Съедено, г';
