@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:callory/db/database.dart';
 import 'package:callory/domain/food_source.dart';
 import 'package:callory/l10n/app_localizations.dart';
@@ -179,6 +181,18 @@ class _SearchTabState extends ConsumerState<_SearchTab> {
   List<FoodResult> _results = [];
   var _updatingFavorite = false;
   int _searchGeneration = 0;
+  Timer? _debounce;
+
+  @override
+  void dispose() {
+    _debounce?.cancel();
+    super.dispose();
+  }
+
+  void _onQueryChanged(String query) {
+    _debounce?.cancel();
+    _debounce = Timer(const Duration(seconds: 1), () => _search(query));
+  }
 
   Future<void> _search(String query) async {
     final generation = ++_searchGeneration;
@@ -256,6 +270,7 @@ class _SearchTabState extends ConsumerState<_SearchTab> {
           child: TextField(
             controller: _controller,
             decoration: InputDecoration(labelText: loc.addFoodSearchLabel),
+            onChanged: _onQueryChanged,
             onSubmitted: _search,
           ),
         ),

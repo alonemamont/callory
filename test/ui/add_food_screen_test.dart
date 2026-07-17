@@ -640,6 +640,68 @@ void main() {
   );
 
   testWidgets(
+    'typing without submitting triggers a debounced search after 1 second',
+    (tester) async {
+      await pumpAddFoodScreen(
+        tester,
+        db: db,
+        externalSource: _FakeFoodSource(
+          searchResults: const [
+            FoodResult(
+              name: 'Debounced Result',
+              kcalPer100g: 3,
+              proteinPer100g: 3,
+              fatPer100g: 3,
+              carbsPer100g: 3,
+            ),
+          ],
+        ),
+      );
+
+      final searchField = find.widgetWithText(TextField, 'Search foods');
+      await tester.enterText(searchField, 'd');
+      await tester.pump(const Duration(milliseconds: 500));
+      expect(find.textContaining('Debounced Result'), findsNothing);
+
+      await tester.pump(const Duration(milliseconds: 600));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('Debounced Result'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'typing again resets the 1 second debounce timer',
+    (tester) async {
+      await pumpAddFoodScreen(
+        tester,
+        db: db,
+        externalSource: _FakeFoodSource(
+          searchResults: const [
+            FoodResult(
+              name: 'Debounced Result',
+              kcalPer100g: 3,
+              proteinPer100g: 3,
+              fatPer100g: 3,
+              carbsPer100g: 3,
+            ),
+          ],
+        ),
+      );
+
+      final searchField = find.widgetWithText(TextField, 'Search foods');
+      await tester.enterText(searchField, 'd');
+      await tester.pump(const Duration(milliseconds: 700));
+      await tester.enterText(searchField, 'de');
+      await tester.pump(const Duration(milliseconds: 700));
+      expect(find.textContaining('Debounced Result'), findsNothing);
+
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('Debounced Result'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
     'saving an external dialog result reuses an existing local barcode row',
     (tester) async {
       final existingId = await seedPrivateFood(
