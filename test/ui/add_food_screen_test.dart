@@ -419,7 +419,7 @@ void main() {
   );
 
   testWidgets(
-    'initial tab is Recent and tab order is Recent Search Barcode Manual',
+    'initial tab is Search, and tab order is Recent Search Barcode Manual',
     (tester) async {
       await pumpAddFoodScreen(tester, db: db);
 
@@ -427,18 +427,22 @@ void main() {
       expect(find.text('Search'), findsOneWidget);
       expect(find.text('Barcode'), findsOneWidget);
       expect(find.text('Manual'), findsOneWidget);
-      expect(find.text('Only favorites'), findsOneWidget);
+      expect(find.widgetWithText(TextField, 'Search foods'), findsOneWidget);
     },
   );
 
   testWidgets('empty recent state renders correctly', (tester) async {
     await pumpAddFoodScreen(tester, db: db);
+    await tester.tap(find.text('Recent'));
+    await tester.pumpAndSettle();
     expect(find.text('No recent foods yet'), findsOneWidget);
   });
 
   testWidgets('favorites-only empty state renders correctly', (tester) async {
     await seedUsedFood(db, name: 'Used Non Favorite', isFavorite: false);
     await pumpAddFoodScreen(tester, db: db);
+    await tester.tap(find.text('Recent'));
+    await tester.pumpAndSettle();
 
     await tester.tap(find.byType(SwitchListTile));
     await tester.pumpAndSettle();
@@ -451,6 +455,8 @@ void main() {
   ) async {
     final id = await seedUsedFood(db, name: 'Recent Oats', isFavorite: false);
     await pumpAddFoodScreen(tester, db: db);
+    await tester.tap(find.text('Recent'));
+    await tester.pumpAndSettle();
 
     await tester.tap(find.byIcon(Icons.star_border).last);
     await tester.pumpAndSettle();
@@ -465,6 +471,8 @@ void main() {
   ) async {
     await seedUsedFood(db, name: 'Recent Rice', isFavorite: true);
     await pumpAddFoodScreen(tester, db: db);
+    await tester.tap(find.text('Recent'));
+    await tester.pumpAndSettle();
 
     await tester.tap(find.text('Recent Rice'));
     await tester.pumpAndSettle();
