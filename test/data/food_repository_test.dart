@@ -260,4 +260,27 @@ void main() {
 
     expect(gammaId, greaterThan(0));
   });
+
+  test('getAllFoods returns every private food alphabetically by name, regardless of diary usage', () async {
+    await repo.insertFood(
+      name: 'Zucchini',
+      kcalPer100g: 20,
+      proteinPer100g: 1,
+      fatPer100g: 0,
+      carbsPer100g: 3,
+      source: FoodSourceType.manual,
+    );
+    await repo.insertFood(
+      name: 'Apple',
+      kcalPer100g: 52,
+      proteinPer100g: 0,
+      fatPer100g: 0,
+      carbsPer100g: 14,
+      source: FoodSourceType.manual,
+    );
+
+    final all = await repo.getAllFoods();
+
+    expect(all.map((f) => f.name).toList(), ['Apple', 'Zucchini']);
+  });
 }

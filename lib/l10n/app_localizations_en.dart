@@ -257,6 +257,18 @@ class AppLocalizationsEn extends AppLocalizations {
   String get addFoodSaveButton => 'Save';
 
   @override
+  String get addFoodAddProductButton => 'Add product';
+
+  @override
+  String get addFoodAddProductDialogTitle => 'New product';
+
+  @override
+  String get addFoodNoProductsYet => 'No products yet';
+
+  @override
+  String get addFoodNoSearchResults => 'No matching products';
+
+  @override
   String get dayNoMealsLoggedYet => 'No meals logged yet';
 
   @override

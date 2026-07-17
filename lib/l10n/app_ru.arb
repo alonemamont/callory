@@ -81,6 +81,10 @@
   "addFoodGramsError": "Съеденное количество должно быть положительным числом",
   "addFoodCancelButton": "Отмена",
   "addFoodSaveButton": "Сохранить",
+  "addFoodAddProductButton": "Добавить продукт",
+  "addFoodAddProductDialogTitle": "Новый продукт",
+  "addFoodNoProductsYet": "Пока нет продуктов",
+  "addFoodNoSearchResults": "Совпадений не найдено",
 
   "dayNoMealsLoggedYet": "Пока нет записей о приёмах пищи",
   "dayLabelKcal": "Ккал",
