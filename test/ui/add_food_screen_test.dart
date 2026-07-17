@@ -275,6 +275,42 @@ void main() {
     },
   );
 
+  testWidgets(
+    'local results render immediately while the remote search is still pending',
+    (tester) async {
+      await seedPrivateFood(
+        db,
+        name: 'Slow-Query Local Food',
+        isFavorite: false,
+      );
+
+      await pumpAddFoodScreen(
+        tester,
+        db: db,
+        foodLookupService: FoodLookupService(
+          FoodRepository(db),
+          _SlowThenFastSource(),
+        ),
+      );
+
+      await tester.tap(find.text('Search'));
+      await tester.pumpAndSettle();
+
+      final searchField = find.widgetWithText(TextField, 'Search foods');
+      await tester.enterText(searchField, 'slow-query');
+      await tester.testTextInput.receiveAction(TextInputAction.done);
+      await tester.pump(const Duration(milliseconds: 20));
+
+      expect(find.textContaining('Slow-Query Local Food'), findsOneWidget);
+      expect(find.textContaining('Slow Result'), findsNothing);
+
+      await tester.pumpAndSettle(const Duration(milliseconds: 300));
+
+      expect(find.textContaining('Slow-Query Local Food'), findsOneWidget);
+      expect(find.textContaining('Slow Result'), findsOneWidget);
+    },
+  );
+
   testWidgets('manual save can create a favorite product and one diary entry', (
     tester,
   ) async {

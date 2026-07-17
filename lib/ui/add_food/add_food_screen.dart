@@ -186,9 +186,11 @@ class _SearchTabState extends ConsumerState<_SearchTab> {
       setState(() => _results = []);
       return;
     }
-    final results = await ref.read(foodLookupServiceProvider).search(query);
-    if (!mounted || generation != _searchGeneration) return;
-    setState(() => _results = results);
+    final stream = ref.read(foodLookupServiceProvider).searchStream(query);
+    await for (final results in stream) {
+      if (!mounted || generation != _searchGeneration) return;
+      setState(() => _results = results);
+    }
   }
 
   Future<void> _toggleFavorite(FoodResult result) async {
