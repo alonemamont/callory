@@ -149,6 +149,13 @@ class FoodRepository implements FoodSource {
         .toList();
   }
 
+  Future<List<FoodResult>> getAllFoods() async {
+    final rows = await (db.select(db.privateFoods)
+          ..orderBy([(f) => OrderingTerm.asc(f.name)]))
+        .get();
+    return rows.map(_toResult).toList();
+  }
+
   void _validateNutrients({
     required double kcal,
     required double protein,
