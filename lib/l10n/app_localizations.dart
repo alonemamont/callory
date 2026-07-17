@@ -560,6 +560,24 @@ abstract class AppLocalizations {
   /// **'Save'**
   String get addFoodSaveButton;
 
+  /// No description provided for @addFoodAddProductButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Add product'**
+  String get addFoodAddProductButton;
+
+  /// No description provided for @addFoodAddProductDialogTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'New product'**
+  String get addFoodAddProductDialogTitle;
+
+  /// No description provided for @addFoodNoProductsYet.
+  ///
+  /// In en, this message translates to:
+  /// **'No products yet'**
+  String get addFoodNoProductsYet;
+
   /// No description provided for @dayNoMealsLoggedYet.
   ///
   /// In en, this message translates to:

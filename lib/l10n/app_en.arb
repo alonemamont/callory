@@ -106,6 +106,9 @@
   "addFoodGramsError": "Grams eaten must be a positive number",
   "addFoodCancelButton": "Cancel",
   "addFoodSaveButton": "Save",
+  "addFoodAddProductButton": "Add product",
+  "addFoodAddProductDialogTitle": "New product",
+  "addFoodNoProductsYet": "No products yet",
 
   "dayNoMealsLoggedYet": "No meals logged yet",
   "dayLabelKcal": "Kcal",
