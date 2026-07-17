@@ -252,6 +252,13 @@ class AppLocalizationsRu extends AppLocalizations {
       'Значения нутриентов должны быть неотрицательными числами';
 
   @override
+  String get addFoodNameRequiredError => 'Введите название продукта';
+
+  @override
+  String get addFoodCaloriesRequiredError =>
+      'Калорийность должна быть больше нуля';
+
+  @override
   String get addFoodGramsError =>
       'Съеденное количество должно быть положительным числом';
 

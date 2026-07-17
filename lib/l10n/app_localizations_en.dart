@@ -248,6 +248,13 @@ class AppLocalizationsEn extends AppLocalizations {
       'Nutrient values must be non-negative numbers';
 
   @override
+  String get addFoodNameRequiredError => 'Enter a product name';
+
+  @override
+  String get addFoodCaloriesRequiredError =>
+      'Calories must be greater than zero';
+
+  @override
   String get addFoodGramsError => 'Grams eaten must be a positive number';
 
   @override

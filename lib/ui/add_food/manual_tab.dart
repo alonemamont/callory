@@ -61,12 +61,20 @@ Future<bool> showAddProductDialog({
           ),
           TextButton(
             onPressed: () {
+              if (nameController.text.trim().isEmpty) {
+                setState(() => errorText = loc.addFoodNameRequiredError);
+                return;
+              }
               final kcal = double.tryParse(kcalController.text);
+              if (kcal == null || !kcal.isFinite || kcal <= 0) {
+                setState(() => errorText = loc.addFoodCaloriesRequiredError);
+                return;
+              }
               final protein = double.tryParse(proteinController.text);
               final fat = double.tryParse(fatController.text);
               final carbs = double.tryParse(carbsController.text);
-              final nutrients = [kcal, protein, fat, carbs];
-              if (nutrients.any((v) => v == null || !v.isFinite || v < 0)) {
+              final otherNutrients = [protein, fat, carbs];
+              if (otherNutrients.any((v) => v == null || !v.isFinite || v < 0)) {
                 setState(() => errorText = loc.addFoodNutrientError);
                 return;
               }

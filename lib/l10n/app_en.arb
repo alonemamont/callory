@@ -103,6 +103,8 @@
   "addFoodGramsEatenLabel": "Grams eaten",
   "addFoodFavoriteLabel": "Favorite",
   "addFoodNutrientError": "Nutrient values must be non-negative numbers",
+  "addFoodNameRequiredError": "Enter a product name",
+  "addFoodCaloriesRequiredError": "Calories must be greater than zero",
   "addFoodGramsError": "Grams eaten must be a positive number",
   "addFoodCancelButton": "Cancel",
   "addFoodSaveButton": "Save",

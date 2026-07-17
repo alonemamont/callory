@@ -92,11 +92,34 @@ void main() {
     expect(entries, isEmpty);
   });
 
-  testWidgets('invalid nutrient value shows an error and creates nothing', (tester) async {
+  testWidgets('empty name shows an error and creates nothing', (tester) async {
+    await pumpLauncher(tester);
+
+    await tester.enterText(find.widgetWithText(TextField, 'Kcal / 100g'), '100');
+    await tester.tap(find.text('Save'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Enter a product name'), findsOneWidget);
+    expect(await db.select(db.privateFoods).get(), isEmpty);
+  });
+
+  testWidgets('zero calories shows an error and creates nothing', (tester) async {
+    await pumpLauncher(tester);
+
+    await tester.enterText(find.widgetWithText(TextField, 'Name'), 'Water');
+    await tester.tap(find.text('Save'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Calories must be greater than zero'), findsOneWidget);
+    expect(await db.select(db.privateFoods).get(), isEmpty);
+  });
+
+  testWidgets('negative protein still shows the generic nutrient error', (tester) async {
     await pumpLauncher(tester);
 
     await tester.enterText(find.widgetWithText(TextField, 'Name'), 'Bad Food');
-    await tester.enterText(find.widgetWithText(TextField, 'Kcal / 100g'), '-5');
+    await tester.enterText(find.widgetWithText(TextField, 'Kcal / 100g'), '100');
+    await tester.enterText(find.widgetWithText(TextField, 'Protein / 100g'), '-5');
     await tester.tap(find.text('Save'));
     await tester.pumpAndSettle();
 
