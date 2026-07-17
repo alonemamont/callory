@@ -132,6 +132,47 @@ class AppLocalizationsEn extends AppLocalizations {
   String get goalsGoalTypeGain => 'Gain weight';
 
   @override
+  String get goalsSexFieldLabel => 'Sex';
+
+  @override
+  String get goalsActivityFieldLabel => 'Activity level';
+
+  @override
+  String get goalsGoalTypeFieldLabel => 'Goal';
+
+  @override
+  String get goalsSexMaleDescription =>
+      'Used in the basal metabolic rate formula (offset +5)';
+
+  @override
+  String get goalsSexFemaleDescription =>
+      'Used in the basal metabolic rate formula (offset −161)';
+
+  @override
+  String get goalsActivitySedentaryDescription =>
+      'Little or no exercise, desk job';
+
+  @override
+  String get goalsActivityLightDescription => 'Light exercise 1–3 days a week';
+
+  @override
+  String get goalsActivityModerateDescription =>
+      'Moderate exercise 3–5 days a week';
+
+  @override
+  String get goalsActivityHighDescription => 'Hard exercise 6–7 days a week';
+
+  @override
+  String get goalsGoalTypeLoseDescription => 'Calorie deficit to lose weight';
+
+  @override
+  String get goalsGoalTypeMaintainDescription =>
+      'Calories at maintenance level, weight stays the same';
+
+  @override
+  String get goalsGoalTypeGainDescription => 'Calorie surplus to gain weight';
+
+  @override
   String get addFoodTitle => 'Add food';
 
   @override

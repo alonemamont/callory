@@ -167,4 +167,33 @@ void main() {
 
     await db.close();
   });
+
+  testWidgets('sex field shows a labeled picker and updates the value on selection', (tester) async {
+    final db = AppDatabase.forTesting(NativeDatabase.memory());
+
+    await tester.pumpWidget(ProviderScope(
+      overrides: [databaseProvider.overrideWithValue(db)],
+      child: wrapWithLocalizations(const GoalsScreen()),
+    ));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Calculated'));
+    await tester.pumpAndSettle();
+
+    // Default is Sex.male; the tile shows the field label and current value.
+    expect(find.text('Sex: Male'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('calcSexField')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Used in the basal metabolic rate formula (offset +5)'), findsOneWidget);
+    expect(find.text('Used in the basal metabolic rate formula (offset −161)'), findsOneWidget);
+
+    await tester.tap(find.text('Female'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Sex: Female'), findsOneWidget);
+
+    await db.close();
+  });
 }
