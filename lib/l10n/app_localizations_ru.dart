@@ -284,6 +284,14 @@ class AppLocalizationsRu extends AppLocalizations {
   String get addFoodNoSearchResults => 'Совпадений не найдено';
 
   @override
+  String addFoodDeleteConfirmMessage(String name) {
+    return 'Продукт $name будет удален! Подтвердить?';
+  }
+
+  @override
+  String get addFoodDeleteConfirmButton => 'Удалить';
+
+  @override
   String get dayNoMealsLoggedYet => 'Пока нет записей о приёмах пищи';
 
   @override

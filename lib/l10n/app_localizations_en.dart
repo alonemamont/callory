@@ -279,6 +279,14 @@ class AppLocalizationsEn extends AppLocalizations {
   String get addFoodNoSearchResults => 'No matching products';
 
   @override
+  String addFoodDeleteConfirmMessage(String name) {
+    return 'Product $name will be deleted! Confirm?';
+  }
+
+  @override
+  String get addFoodDeleteConfirmButton => 'Delete';
+
+  @override
   String get dayNoMealsLoggedYet => 'No meals logged yet';
 
   @override

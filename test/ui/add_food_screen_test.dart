@@ -836,4 +836,33 @@ void main() {
     );
     expect(find.textContaining('Greek Yogurt'), findsOneWidget);
   });
+
+  testWidgets('editable food dialog capitalizes sentences in the name field', (tester) async {
+    await pumpDialogHost(
+      tester,
+      initial: const FoodResult(
+        name: '',
+        kcalPer100g: 0,
+        proteinPer100g: 0,
+        fatPer100g: 0,
+        carbsPer100g: 0,
+      ),
+    );
+
+    final nameField = tester.widget<TextField>(
+      find.widgetWithText(TextField, 'Name'),
+    );
+    expect(nameField.textCapitalization, TextCapitalization.sentences);
+  });
+
+  testWidgets('search tab field capitalizes sentences', (tester) async {
+    await pumpAddFoodScreen(tester, db: db);
+    await tester.tap(find.text('Search'));
+    await tester.pumpAndSettle();
+
+    final searchField = tester.widget<TextField>(
+      find.widgetWithText(TextField, 'Search foods'),
+    );
+    expect(searchField.textCapitalization, TextCapitalization.sentences);
+  });
 }

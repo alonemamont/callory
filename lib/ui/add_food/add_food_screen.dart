@@ -422,6 +422,7 @@ Future<bool> showEditableFoodDialog({
             children: [
               TextField(
                 controller: nameController,
+                textCapitalization: TextCapitalization.sentences,
                 decoration: InputDecoration(labelText: loc.addFoodNameLabel),
               ),
               NumberField(controller: kcalController, labelText: loc.addFoodKcalLabel),
