@@ -403,4 +403,76 @@ void main() {
     final foods = await db.select(db.privateFoods).get();
     expect(foods.single.isFavorite, true);
   });
+
+  testWidgets('manual tab search field immediately persists the typed query', (tester) async {
+    final prefs = await SharedPreferences.getInstance();
+    final settingsService = SettingsService(prefs);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          databaseProvider.overrideWithValue(db),
+          settingsServiceProvider.overrideWithValue(settingsService),
+        ],
+        child: wrapWithLocalizations(const Scaffold(body: ManualTab())),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.enterText(
+      find.widgetWithText(TextField, 'Search foods'),
+      'ric',
+    );
+    await tester.pump();
+
+    expect(settingsService.lastManualSearchQuery, 'ric');
+  });
+
+  testWidgets('manual tab search field prefills the last query, autofocuses, and filters immediately', (tester) async {
+    final foodRepo = FoodRepository(db);
+    await foodRepo.insertFood(
+      name: 'Rice Cakes',
+      kcalPer100g: 380,
+      proteinPer100g: 8,
+      fatPer100g: 3,
+      carbsPer100g: 80,
+      source: FoodSourceType.manual,
+    );
+    await foodRepo.insertFood(
+      name: 'Oatmeal',
+      kcalPer100g: 380,
+      proteinPer100g: 13,
+      fatPer100g: 7,
+      carbsPer100g: 67,
+      source: FoodSourceType.manual,
+    );
+
+    final prefs = await SharedPreferences.getInstance();
+    final settingsService = SettingsService(prefs);
+    await settingsService.setLastManualSearchQuery('rice');
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          databaseProvider.overrideWithValue(db),
+          settingsServiceProvider.overrideWithValue(settingsService),
+        ],
+        child: wrapWithLocalizations(const Scaffold(body: ManualTab())),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final searchField = tester.widget<TextField>(
+      find.widgetWithText(TextField, 'Search foods'),
+    );
+    expect(searchField.controller!.text, 'rice');
+    expect(searchField.autofocus, true);
+    expect(searchField.focusNode!.hasFocus, true);
+    expect(
+      searchField.controller!.selection,
+      const TextSelection(baseOffset: 0, extentOffset: 4),
+    );
+    expect(find.text('Rice Cakes'), findsOneWidget);
+    expect(find.text('Oatmeal'), findsNothing);
+  });
 }
