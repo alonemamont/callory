@@ -382,4 +382,64 @@ void main() {
       await db.close();
     },
   );
+
+  testWidgets(
+    'deleting a logged entry shows a confirmation and removes it on confirm',
+    (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+      final db = AppDatabase.forTesting(NativeDatabase.memory());
+      final diaryRepo = DiaryRepository(db);
+      final today = DateTime.now();
+      await diaryRepo.addEntry(
+        foodNameSnapshot: 'Doomed Snack',
+        grams: 100,
+        kcalPer100g: 150,
+        proteinPer100g: 10,
+        fatPer100g: 5,
+        carbsPer100g: 10,
+        entryDate: DateTime(today.year, today.month, today.day),
+        occurredAt: today,
+        gapWindow: const Duration(minutes: 90),
+      );
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            databaseProvider.overrideWithValue(db),
+            settingsServiceProvider.overrideWithValue(SettingsService(prefs)),
+          ],
+          child: wrapWithLocalizations(const DayScreen()),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('Doomed Snack'), findsOneWidget);
+
+      await tester.tap(find.byIcon(Icons.delete_outline));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text('Doomed Snack will be removed from this meal. Confirm?'),
+        findsOneWidget,
+      );
+
+      // Cancel first: entry stays.
+      await tester.tap(find.text('Cancel'));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('Doomed Snack'), findsOneWidget);
+      expect(await db.select(db.diaryEntries).get(), hasLength(1));
+
+      // Now delete for real.
+      await tester.tap(find.byIcon(Icons.delete_outline));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Delete'));
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('Doomed Snack'), findsNothing);
+      expect(await db.select(db.diaryEntries).get(), isEmpty);
+
+      await db.close();
+    },
+  );
 }

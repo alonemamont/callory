@@ -668,6 +668,12 @@ abstract class AppLocalizations {
   /// **'P/F/C'**
   String get dayEntryMacroSuffix;
 
+  /// No description provided for @dayDeleteEntryConfirmMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} will be removed from this meal. Confirm?'**
+  String dayDeleteEntryConfirmMessage(String name);
+
   /// No description provided for @dayGramsEatenLabel.
   ///
   /// In en, this message translates to:

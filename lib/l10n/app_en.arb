@@ -145,6 +145,12 @@
     }
   },
   "dayEntryMacroSuffix": "P/F/C",
+  "dayDeleteEntryConfirmMessage": "{name} will be removed from this meal. Confirm?",
+  "@dayDeleteEntryConfirmMessage": {
+    "placeholders": {
+      "name": {"type": "String"}
+    }
+  },
   "dayGramsEatenLabel": "Grams eaten",
   "dayCancelButton": "Cancel",
   "daySaveButton": "Save"

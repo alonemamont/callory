@@ -320,6 +320,11 @@ class AppLocalizationsEn extends AppLocalizations {
   String get dayEntryMacroSuffix => 'P/F/C';
 
   @override
+  String dayDeleteEntryConfirmMessage(String name) {
+    return '$name will be removed from this meal. Confirm?';
+  }
+
+  @override
   String get dayGramsEatenLabel => 'Grams eaten';
 
   @override

@@ -325,6 +325,11 @@ class AppLocalizationsRu extends AppLocalizations {
   String get dayEntryMacroSuffix => 'Б/Ж/У';
 
   @override
+  String dayDeleteEntryConfirmMessage(String name) {
+    return '$name будет удален из приема пищи. Подтвердить?';
+  }
+
+  @override
   String get dayGramsEatenLabel => 'Съедено, г';
 
   @override

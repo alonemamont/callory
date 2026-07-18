@@ -100,6 +100,7 @@
   "dayEntryGrams": "{grams} г",
   "dayEntryKcal": "{kcal} ккал",
   "dayEntryMacroSuffix": "Б/Ж/У",
+  "dayDeleteEntryConfirmMessage": "{name} будет удален из приема пищи. Подтвердить?",
   "dayGramsEatenLabel": "Съедено, г",
   "dayCancelButton": "Отмена",
   "daySaveButton": "Сохранить"
