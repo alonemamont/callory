@@ -178,18 +178,39 @@ class _RecentTabState extends ConsumerState<_RecentTab> {
 
 class _SearchTabState extends ConsumerState<_SearchTab> {
   final _controller = TextEditingController();
+  final _focusNode = FocusNode();
   List<FoodResult> _results = [];
   var _updatingFavorite = false;
   int _searchGeneration = 0;
   Timer? _debounce;
 
   @override
+  void initState() {
+    super.initState();
+    final lastQuery = ref.read(settingsServiceProvider).lastSearchQuery;
+    _controller.text = lastQuery;
+    _focusNode.addListener(() {
+      if (_focusNode.hasFocus) {
+        _controller.selection = TextSelection(
+          baseOffset: 0,
+          extentOffset: _controller.text.length,
+        );
+      }
+    });
+    if (lastQuery.trim().isNotEmpty) {
+      _search(lastQuery);
+    }
+  }
+
+  @override
   void dispose() {
     _debounce?.cancel();
+    _focusNode.dispose();
     super.dispose();
   }
 
   void _onQueryChanged(String query) {
+    ref.read(settingsServiceProvider).setLastSearchQuery(query);
     _debounce?.cancel();
     _debounce = Timer(const Duration(seconds: 1), () => _search(query));
   }
@@ -269,6 +290,9 @@ class _SearchTabState extends ConsumerState<_SearchTab> {
           padding: const EdgeInsets.all(12),
           child: TextField(
             controller: _controller,
+            focusNode: _focusNode,
+            autofocus: true,
+            textCapitalization: TextCapitalization.sentences,
             decoration: InputDecoration(labelText: loc.addFoodSearchLabel),
             onChanged: _onQueryChanged,
             onSubmitted: _search,
