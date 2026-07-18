@@ -31,6 +31,8 @@ Future<bool> showAddProductDialog({
             children: [
               TextField(
                 controller: nameController,
+                autofocus: true,
+                textCapitalization: TextCapitalization.sentences,
                 decoration: InputDecoration(labelText: loc.addFoodNameLabel),
               ),
               NumberField(controller: kcalController, labelText: loc.addFoodKcalLabel),
@@ -184,12 +186,31 @@ class ManualTab extends ConsumerStatefulWidget {
 
 class _ManualTabState extends ConsumerState<ManualTab> {
   late Future<List<FoodResult>> _allFoods;
+  final _searchController = TextEditingController();
+  final _searchFocusNode = FocusNode();
   var _query = '';
 
   @override
   void initState() {
     super.initState();
     _allFoods = ref.read(foodRepositoryProvider).getAllFoods();
+    _query = ref.read(settingsServiceProvider).lastManualSearchQuery;
+    _searchController.text = _query;
+    _searchFocusNode.addListener(() {
+      if (_searchFocusNode.hasFocus) {
+        _searchController.selection = TextSelection(
+          baseOffset: 0,
+          extentOffset: _searchController.text.length,
+        );
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    _searchFocusNode.dispose();
+    super.dispose();
   }
 
   void _refresh() {
@@ -202,6 +223,29 @@ class _ManualTabState extends ConsumerState<ManualTab> {
     await ref
         .read(foodRepositoryProvider)
         .setFavorite(food.existingPrivateFoodId!, !food.isFavorite);
+    if (mounted) _refresh();
+  }
+
+  Future<void> _confirmDelete(FoodResult food) async {
+    final loc = AppLocalizations.of(context)!;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        content: Text(loc.addFoodDeleteConfirmMessage(food.name)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text(loc.addFoodCancelButton),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: Text(loc.addFoodDeleteConfirmButton),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    await ref.read(foodRepositoryProvider).deleteFood(food.existingPrivateFoodId!);
     if (mounted) _refresh();
   }
 
@@ -223,8 +267,15 @@ class _ManualTabState extends ConsumerState<ManualTab> {
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12),
           child: TextField(
+            controller: _searchController,
+            focusNode: _searchFocusNode,
+            autofocus: true,
+            textCapitalization: TextCapitalization.sentences,
             decoration: InputDecoration(labelText: loc.addFoodSearchLabel),
-            onChanged: (value) => setState(() => _query = value),
+            onChanged: (value) {
+              ref.read(settingsServiceProvider).setLastManualSearchQuery(value);
+              setState(() => _query = value);
+            },
           ),
         ),
         Expanded(
@@ -256,9 +307,18 @@ class _ManualTabState extends ConsumerState<ManualTab> {
                   return ListTile(
                     title: Text(food.name),
                     subtitle: Text(loc.addFoodKcalPer100g(food.kcalPer100g.round())),
-                    trailing: IconButton(
-                      icon: Icon(food.isFavorite ? Icons.star : Icons.star_border),
-                      onPressed: () => _toggleFavorite(food),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton(
+                          icon: Icon(food.isFavorite ? Icons.star : Icons.star_border),
+                          onPressed: () => _toggleFavorite(food),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.delete_outline),
+                          onPressed: () => _confirmDelete(food),
+                        ),
+                      ],
                     ),
                     onTap: () async {
                       final saved = await showLogExistingFoodDialog(

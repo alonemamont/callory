@@ -27,6 +27,9 @@ class AppLocalizationsRu extends AppLocalizations {
   String get settingsLanguageLabel => 'Язык';
 
   @override
+  String get settingsSetGoalsLabel => 'Задать цели';
+
+  @override
   String settingsGapWindowLabel(int minutes) {
     return 'Интервал группировки приёмов пищи: $minutes мин';
   }
@@ -281,6 +284,14 @@ class AppLocalizationsRu extends AppLocalizations {
   String get addFoodNoSearchResults => 'Совпадений не найдено';
 
   @override
+  String addFoodDeleteConfirmMessage(String name) {
+    return 'Продукт $name будет удален! Подтвердить?';
+  }
+
+  @override
+  String get addFoodDeleteConfirmButton => 'Удалить';
+
+  @override
   String get dayNoMealsLoggedYet => 'Пока нет записей о приёмах пищи';
 
   @override
@@ -312,6 +323,11 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get dayEntryMacroSuffix => 'Б/Ж/У';
+
+  @override
+  String dayDeleteEntryConfirmMessage(String name) {
+    return '$name будет удален из приема пищи. Подтвердить?';
+  }
 
   @override
   String get dayGramsEatenLabel => 'Съедено, г';

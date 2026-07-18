@@ -134,6 +134,12 @@ abstract class AppLocalizations {
   /// **'Language'**
   String get settingsLanguageLabel;
 
+  /// No description provided for @settingsSetGoalsLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Set goals'**
+  String get settingsSetGoalsLabel;
+
   /// No description provided for @settingsGapWindowLabel.
   ///
   /// In en, this message translates to:
@@ -596,6 +602,18 @@ abstract class AppLocalizations {
   /// **'No matching products'**
   String get addFoodNoSearchResults;
 
+  /// No description provided for @addFoodDeleteConfirmMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Product {name} will be deleted! Confirm?'**
+  String addFoodDeleteConfirmMessage(String name);
+
+  /// No description provided for @addFoodDeleteConfirmButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete'**
+  String get addFoodDeleteConfirmButton;
+
   /// No description provided for @dayNoMealsLoggedYet.
   ///
   /// In en, this message translates to:
@@ -649,6 +667,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'P/F/C'**
   String get dayEntryMacroSuffix;
+
+  /// No description provided for @dayDeleteEntryConfirmMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} will be removed from this meal. Confirm?'**
+  String dayDeleteEntryConfirmMessage(String name);
 
   /// No description provided for @dayGramsEatenLabel.
   ///

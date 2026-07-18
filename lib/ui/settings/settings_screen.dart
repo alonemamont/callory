@@ -7,6 +7,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:callory/l10n/app_localizations.dart';
 import 'package:callory/providers/providers.dart';
+import 'package:callory/ui/goals/goals_screen.dart';
 
 enum _LanguageChoice { system, english, russian }
 
@@ -140,6 +141,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             title: Text(loc.settingsLanguageLabel),
             subtitle: Text(_languageSubtitle(ref.watch(localeProvider))),
             onTap: _pickLanguage,
+          ),
+          const Divider(height: 32),
+          ListTile(
+            title: Text(loc.settingsSetGoalsLabel),
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const GoalsScreen()),
+            ),
           ),
           const Divider(height: 32),
           ElevatedButton(onPressed: _exportData, child: Text(loc.settingsExportButton)),

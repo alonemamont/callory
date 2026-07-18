@@ -48,4 +48,40 @@ void main() {
 
     expect(service.localeCode, isNull);
   });
+
+  test('lastSearchQuery defaults to empty when nothing is stored', () async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+    final service = SettingsService(prefs);
+
+    expect(service.lastSearchQuery, '');
+  });
+
+  test('setLastSearchQuery persists and is reflected immediately', () async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+    final service = SettingsService(prefs);
+
+    await service.setLastSearchQuery('yogurt');
+
+    expect(service.lastSearchQuery, 'yogurt');
+  });
+
+  test('lastManualSearchQuery defaults to empty when nothing is stored', () async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+    final service = SettingsService(prefs);
+
+    expect(service.lastManualSearchQuery, '');
+  });
+
+  test('setLastManualSearchQuery persists and is reflected immediately', () async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+    final service = SettingsService(prefs);
+
+    await service.setLastManualSearchQuery('rice');
+
+    expect(service.lastManualSearchQuery, 'rice');
+  });
 }

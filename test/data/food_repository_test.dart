@@ -124,6 +124,22 @@ void main() {
     expect(results.first.name, 'Greek Yogurt');
   });
 
+  test('searchByName matches Cyrillic names regardless of case', () async {
+    await repo.insertFood(
+      name: 'Гречка',
+      kcalPer100g: 110,
+      proteinPer100g: 4,
+      fatPer100g: 1,
+      carbsPer100g: 20,
+      source: FoodSourceType.manual,
+    );
+
+    final results = await repo.searchByName('гречка');
+
+    expect(results, hasLength(1));
+    expect(results.first.name, 'Гречка');
+  });
+
   test('updateFood changes the stored macros', () async {
     final id = await repo.insertFood(
       name: 'Oats',

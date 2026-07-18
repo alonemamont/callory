@@ -92,6 +92,43 @@ void main() {
     expect(entries, isEmpty);
   });
 
+  testWidgets('add product dialog autofocuses the name field', (tester) async {
+    await pumpLauncher(tester);
+
+    final nameField = tester.widget<TextField>(
+      find.widgetWithText(TextField, 'Name'),
+    );
+    expect(nameField.autofocus, true);
+  });
+
+  testWidgets('add product dialog capitalizes sentences in the name field', (tester) async {
+    await pumpLauncher(tester);
+
+    final nameField = tester.widget<TextField>(
+      find.widgetWithText(TextField, 'Name'),
+    );
+    expect(nameField.textCapitalization, TextCapitalization.sentences);
+  });
+
+  testWidgets('manual tab search field capitalizes sentences', (tester) async {
+    final prefs = await SharedPreferences.getInstance();
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          databaseProvider.overrideWithValue(db),
+          settingsServiceProvider.overrideWithValue(SettingsService(prefs)),
+        ],
+        child: wrapWithLocalizations(const Scaffold(body: ManualTab())),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final searchField = tester.widget<TextField>(
+      find.widgetWithText(TextField, 'Search foods'),
+    );
+    expect(searchField.textCapitalization, TextCapitalization.sentences);
+  });
+
   testWidgets('empty name shows an error and creates nothing', (tester) async {
     await pumpLauncher(tester);
 
@@ -383,6 +420,55 @@ void main() {
     expect(find.text('No products yet'), findsNothing);
   });
 
+  testWidgets('deleting a product shows a confirmation and removes it on confirm', (tester) async {
+    final foodRepo = FoodRepository(db);
+    await foodRepo.insertFood(
+      name: 'Doomed Cracker',
+      kcalPer100g: 400,
+      proteinPer100g: 8,
+      fatPer100g: 10,
+      carbsPer100g: 60,
+      source: FoodSourceType.manual,
+    );
+
+    final prefs = await SharedPreferences.getInstance();
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          databaseProvider.overrideWithValue(db),
+          settingsServiceProvider.overrideWithValue(SettingsService(prefs)),
+        ],
+        child: wrapWithLocalizations(const Scaffold(body: ManualTab())),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Doomed Cracker'), findsOneWidget);
+
+    await tester.tap(find.byIcon(Icons.delete_outline));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text('Product Doomed Cracker will be deleted! Confirm?'),
+      findsOneWidget,
+    );
+
+    // Cancel first: nothing should be deleted.
+    await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
+    expect(find.text('Doomed Cracker'), findsOneWidget);
+    expect(await db.select(db.privateFoods).get(), hasLength(1));
+
+    // Now delete for real.
+    await tester.tap(find.byIcon(Icons.delete_outline));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Delete'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Doomed Cracker'), findsNothing);
+    expect(await db.select(db.privateFoods).get(), isEmpty);
+  });
+
   testWidgets('tapping the star toggles favorite and persists across refresh', (tester) async {
     final foodRepo = FoodRepository(db);
     await foodRepo.insertFood(
@@ -402,5 +488,77 @@ void main() {
     expect(find.byIcon(Icons.star), findsOneWidget);
     final foods = await db.select(db.privateFoods).get();
     expect(foods.single.isFavorite, true);
+  });
+
+  testWidgets('manual tab search field immediately persists the typed query', (tester) async {
+    final prefs = await SharedPreferences.getInstance();
+    final settingsService = SettingsService(prefs);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          databaseProvider.overrideWithValue(db),
+          settingsServiceProvider.overrideWithValue(settingsService),
+        ],
+        child: wrapWithLocalizations(const Scaffold(body: ManualTab())),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.enterText(
+      find.widgetWithText(TextField, 'Search foods'),
+      'ric',
+    );
+    await tester.pump();
+
+    expect(settingsService.lastManualSearchQuery, 'ric');
+  });
+
+  testWidgets('manual tab search field prefills the last query, autofocuses, and filters immediately', (tester) async {
+    final foodRepo = FoodRepository(db);
+    await foodRepo.insertFood(
+      name: 'Rice Cakes',
+      kcalPer100g: 380,
+      proteinPer100g: 8,
+      fatPer100g: 3,
+      carbsPer100g: 80,
+      source: FoodSourceType.manual,
+    );
+    await foodRepo.insertFood(
+      name: 'Oatmeal',
+      kcalPer100g: 380,
+      proteinPer100g: 13,
+      fatPer100g: 7,
+      carbsPer100g: 67,
+      source: FoodSourceType.manual,
+    );
+
+    final prefs = await SharedPreferences.getInstance();
+    final settingsService = SettingsService(prefs);
+    await settingsService.setLastManualSearchQuery('rice');
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          databaseProvider.overrideWithValue(db),
+          settingsServiceProvider.overrideWithValue(settingsService),
+        ],
+        child: wrapWithLocalizations(const Scaffold(body: ManualTab())),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final searchField = tester.widget<TextField>(
+      find.widgetWithText(TextField, 'Search foods'),
+    );
+    expect(searchField.controller!.text, 'rice');
+    expect(searchField.autofocus, true);
+    expect(searchField.focusNode!.hasFocus, true);
+    expect(
+      searchField.controller!.selection,
+      const TextSelection(baseOffset: 0, extentOffset: 4),
+    );
+    expect(find.text('Rice Cakes'), findsOneWidget);
+    expect(find.text('Oatmeal'), findsNothing);
   });
 }

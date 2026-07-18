@@ -782,4 +782,87 @@ void main() {
       expect(entries.single.privateFoodId, favoriteId);
     },
   );
+
+  testWidgets('typing in the search field immediately persists the query', (tester) async {
+    final prefs = await SharedPreferences.getInstance();
+    final settingsService = SettingsService(prefs);
+
+    await pumpAddFoodScreen(
+      tester,
+      db: db,
+      foodLookupService: FoodLookupService(FoodRepository(db), _EmptySource()),
+    );
+    // (settingsServiceProvider is overridden inside pumpAddFoodScreen via a
+    // fresh SettingsService(prefs) built from the same mock prefs storage,
+    // so reads/writes below observe the same underlying data.)
+
+    await tester.tap(find.text('Search'));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(
+      find.widgetWithText(TextField, 'Search foods'),
+      'yog',
+    );
+    await tester.pump();
+
+    expect(settingsService.lastSearchQuery, 'yog');
+  });
+
+  testWidgets('search tab prefills the last query, autofocuses, and searches immediately', (tester) async {
+    final prefs = await SharedPreferences.getInstance();
+    final settingsService = SettingsService(prefs);
+    await settingsService.setLastSearchQuery('yogurt');
+
+    await seedPrivateFood(db, name: 'Greek Yogurt', isFavorite: false);
+
+    await pumpAddFoodScreen(
+      tester,
+      db: db,
+      foodLookupService: FoodLookupService(FoodRepository(db), _EmptySource()),
+    );
+
+    await tester.tap(find.text('Search'));
+    await tester.pumpAndSettle();
+
+    final searchField = tester.widget<TextField>(
+      find.widgetWithText(TextField, 'Search foods'),
+    );
+    expect(searchField.controller!.text, 'yogurt');
+    expect(searchField.autofocus, true);
+    expect(searchField.focusNode!.hasFocus, true);
+    expect(
+      searchField.controller!.selection,
+      const TextSelection(baseOffset: 0, extentOffset: 6),
+    );
+    expect(find.textContaining('Greek Yogurt'), findsOneWidget);
+  });
+
+  testWidgets('editable food dialog capitalizes sentences in the name field', (tester) async {
+    await pumpDialogHost(
+      tester,
+      initial: const FoodResult(
+        name: '',
+        kcalPer100g: 0,
+        proteinPer100g: 0,
+        fatPer100g: 0,
+        carbsPer100g: 0,
+      ),
+    );
+
+    final nameField = tester.widget<TextField>(
+      find.widgetWithText(TextField, 'Name'),
+    );
+    expect(nameField.textCapitalization, TextCapitalization.sentences);
+  });
+
+  testWidgets('search tab field capitalizes sentences', (tester) async {
+    await pumpAddFoodScreen(tester, db: db);
+    await tester.tap(find.text('Search'));
+    await tester.pumpAndSettle();
+
+    final searchField = tester.widget<TextField>(
+      find.widgetWithText(TextField, 'Search foods'),
+    );
+    expect(searchField.textCapitalization, TextCapitalization.sentences);
+  });
 }

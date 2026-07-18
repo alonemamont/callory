@@ -27,6 +27,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsLanguageLabel => 'Language';
 
   @override
+  String get settingsSetGoalsLabel => 'Set goals';
+
+  @override
   String settingsGapWindowLabel(int minutes) {
     return 'Meal grouping gap: $minutes minutes';
   }
@@ -276,6 +279,14 @@ class AppLocalizationsEn extends AppLocalizations {
   String get addFoodNoSearchResults => 'No matching products';
 
   @override
+  String addFoodDeleteConfirmMessage(String name) {
+    return 'Product $name will be deleted! Confirm?';
+  }
+
+  @override
+  String get addFoodDeleteConfirmButton => 'Delete';
+
+  @override
   String get dayNoMealsLoggedYet => 'No meals logged yet';
 
   @override
@@ -307,6 +318,11 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get dayEntryMacroSuffix => 'P/F/C';
+
+  @override
+  String dayDeleteEntryConfirmMessage(String name) {
+    return '$name will be removed from this meal. Confirm?';
+  }
 
   @override
   String get dayGramsEatenLabel => 'Grams eaten';

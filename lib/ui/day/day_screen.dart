@@ -84,11 +84,20 @@ class DayScreen extends ConsumerWidget {
     WidgetRef ref,
     DateTime selectedDay,
   ) async {
-    final picked = await showDatePicker(
+    final picked = await showDialog<DateTime>(
       context: context,
-      initialDate: selectedDay,
-      firstDate: DateTime(2000),
-      lastDate: DateTime(2100),
+      builder: (context) => Dialog(
+        child: SizedBox(
+          width: 320,
+          height: 400,
+          child: CalendarDatePicker(
+            initialDate: selectedDay,
+            firstDate: DateTime(2000),
+            lastDate: DateTime(2100),
+            onDateChanged: (date) => Navigator.pop(context, date),
+          ),
+        ),
+      ),
     );
     if (picked == null) return;
     ref.read(selectedDayProvider.notifier).state = picked;
@@ -178,17 +187,26 @@ class _MealSection extends ConsumerWidget {
           ListTile(
             title: Text(entry.foodNameSnapshot),
             subtitle: Text(loc.dayEntryGrams(entry.grams.round())),
-            trailing: Column(
+            trailing: Row(
               mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                Text(
-                  loc.dayEntryKcal(entry.kcalSnapshot.round()),
-                  style: Theme.of(context).textTheme.titleMedium,
+                Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(
+                      loc.dayEntryKcal(entry.kcalSnapshot.round()),
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    Text(
+                      '${entry.proteinSnapshot.round()}/${entry.fatSnapshot.round()}/${entry.carbsSnapshot.round()} ${loc.dayEntryMacroSuffix}',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ],
                 ),
-                Text(
-                  '${entry.proteinSnapshot.round()}/${entry.fatSnapshot.round()}/${entry.carbsSnapshot.round()} ${loc.dayEntryMacroSuffix}',
-                  style: Theme.of(context).textTheme.bodySmall,
+                IconButton(
+                  icon: const Icon(Icons.delete_outline),
+                  onPressed: () => _confirmDeleteEntry(context, ref, entry),
                 ),
               ],
             ),
@@ -196,6 +214,34 @@ class _MealSection extends ConsumerWidget {
           ),
       ],
     );
+  }
+
+  Future<void> _confirmDeleteEntry(
+    BuildContext context,
+    WidgetRef ref,
+    DiaryEntry entry,
+  ) async {
+    final loc = AppLocalizations.of(context)!;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        content: Text(loc.dayDeleteEntryConfirmMessage(entry.foodNameSnapshot)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text(loc.addFoodCancelButton),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: Text(loc.addFoodDeleteConfirmButton),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    final gapWindow = ref.read(settingsServiceProvider).gapWindow;
+    await ref.read(diaryRepositoryProvider).deleteEntry(entry.id, gapWindow);
+    ref.read(_dayRefreshProvider.notifier).state++;
   }
 
   Future<void> _showEditGramsDialog(

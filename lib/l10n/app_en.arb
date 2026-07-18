@@ -8,6 +8,7 @@
 
   "settingsTitle": "Settings",
   "settingsLanguageLabel": "Language",
+  "settingsSetGoalsLabel": "Set goals",
   "settingsGapWindowLabel": "Meal grouping gap: {minutes} minutes",
   "@settingsGapWindowLabel": {
     "placeholders": {
@@ -112,6 +113,13 @@
   "addFoodAddProductDialogTitle": "New product",
   "addFoodNoProductsYet": "No products yet",
   "addFoodNoSearchResults": "No matching products",
+  "addFoodDeleteConfirmMessage": "Product {name} will be deleted! Confirm?",
+  "@addFoodDeleteConfirmMessage": {
+    "placeholders": {
+      "name": {"type": "String"}
+    }
+  },
+  "addFoodDeleteConfirmButton": "Delete",
 
   "dayNoMealsLoggedYet": "No meals logged yet",
   "dayLabelKcal": "Kcal",
@@ -137,6 +145,12 @@
     }
   },
   "dayEntryMacroSuffix": "P/F/C",
+  "dayDeleteEntryConfirmMessage": "{name} will be removed from this meal. Confirm?",
+  "@dayDeleteEntryConfirmMessage": {
+    "placeholders": {
+      "name": {"type": "String"}
+    }
+  },
   "dayGramsEatenLabel": "Grams eaten",
   "dayCancelButton": "Cancel",
   "daySaveButton": "Save"
