@@ -596,6 +596,18 @@ abstract class AppLocalizations {
   /// **'No matching products'**
   String get addFoodNoSearchResults;
 
+  /// No description provided for @addFoodDeleteConfirmMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Product {name} will be deleted! Confirm?'**
+  String addFoodDeleteConfirmMessage(String name);
+
+  /// No description provided for @addFoodDeleteConfirmButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete'**
+  String get addFoodDeleteConfirmButton;
+
   /// No description provided for @dayNoMealsLoggedYet.
   ///
   /// In en, this message translates to:

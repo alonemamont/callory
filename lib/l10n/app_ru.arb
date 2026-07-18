@@ -87,6 +87,8 @@
   "addFoodAddProductDialogTitle": "Новый продукт",
   "addFoodNoProductsYet": "Пока нет продуктов",
   "addFoodNoSearchResults": "Совпадений не найдено",
+  "addFoodDeleteConfirmMessage": "Продукт {name} будет удален! Подтвердить?",
+  "addFoodDeleteConfirmButton": "Удалить",
 
   "dayNoMealsLoggedYet": "Пока нет записей о приёмах пищи",
   "dayLabelKcal": "Ккал",

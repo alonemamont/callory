@@ -112,6 +112,13 @@
   "addFoodAddProductDialogTitle": "New product",
   "addFoodNoProductsYet": "No products yet",
   "addFoodNoSearchResults": "No matching products",
+  "addFoodDeleteConfirmMessage": "Product {name} will be deleted! Confirm?",
+  "@addFoodDeleteConfirmMessage": {
+    "placeholders": {
+      "name": {"type": "String"}
+    }
+  },
+  "addFoodDeleteConfirmButton": "Delete",
 
   "dayNoMealsLoggedYet": "No meals logged yet",
   "dayLabelKcal": "Kcal",

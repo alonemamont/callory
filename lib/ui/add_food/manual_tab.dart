@@ -207,6 +207,29 @@ class _ManualTabState extends ConsumerState<ManualTab> {
     if (mounted) _refresh();
   }
 
+  Future<void> _confirmDelete(FoodResult food) async {
+    final loc = AppLocalizations.of(context)!;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        content: Text(loc.addFoodDeleteConfirmMessage(food.name)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text(loc.addFoodCancelButton),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: Text(loc.addFoodDeleteConfirmButton),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    await ref.read(foodRepositoryProvider).deleteFood(food.existingPrivateFoodId!);
+    if (mounted) _refresh();
+  }
+
   @override
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context)!;
@@ -259,9 +282,18 @@ class _ManualTabState extends ConsumerState<ManualTab> {
                   return ListTile(
                     title: Text(food.name),
                     subtitle: Text(loc.addFoodKcalPer100g(food.kcalPer100g.round())),
-                    trailing: IconButton(
-                      icon: Icon(food.isFavorite ? Icons.star : Icons.star_border),
-                      onPressed: () => _toggleFavorite(food),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton(
+                          icon: Icon(food.isFavorite ? Icons.star : Icons.star_border),
+                          onPressed: () => _toggleFavorite(food),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.delete_outline),
+                          onPressed: () => _confirmDelete(food),
+                        ),
+                      ],
                     ),
                     onTap: () async {
                       final saved = await showLogExistingFoodDialog(
