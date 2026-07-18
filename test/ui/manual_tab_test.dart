@@ -101,6 +101,34 @@ void main() {
     expect(nameField.autofocus, true);
   });
 
+  testWidgets('add product dialog capitalizes sentences in the name field', (tester) async {
+    await pumpLauncher(tester);
+
+    final nameField = tester.widget<TextField>(
+      find.widgetWithText(TextField, 'Name'),
+    );
+    expect(nameField.textCapitalization, TextCapitalization.sentences);
+  });
+
+  testWidgets('manual tab search field capitalizes sentences', (tester) async {
+    final prefs = await SharedPreferences.getInstance();
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          databaseProvider.overrideWithValue(db),
+          settingsServiceProvider.overrideWithValue(SettingsService(prefs)),
+        ],
+        child: wrapWithLocalizations(const Scaffold(body: ManualTab())),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final searchField = tester.widget<TextField>(
+      find.widgetWithText(TextField, 'Search foods'),
+    );
+    expect(searchField.textCapitalization, TextCapitalization.sentences);
+  });
+
   testWidgets('empty name shows an error and creates nothing', (tester) async {
     await pumpLauncher(tester);
 

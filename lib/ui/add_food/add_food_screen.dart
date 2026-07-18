@@ -269,6 +269,7 @@ class _SearchTabState extends ConsumerState<_SearchTab> {
           padding: const EdgeInsets.all(12),
           child: TextField(
             controller: _controller,
+            textCapitalization: TextCapitalization.sentences,
             decoration: InputDecoration(labelText: loc.addFoodSearchLabel),
             onChanged: _onQueryChanged,
             onSubmitted: _search,
@@ -398,6 +399,7 @@ Future<bool> showEditableFoodDialog({
             children: [
               TextField(
                 controller: nameController,
+                textCapitalization: TextCapitalization.sentences,
                 decoration: InputDecoration(labelText: loc.addFoodNameLabel),
               ),
               NumberField(controller: kcalController, labelText: loc.addFoodKcalLabel),

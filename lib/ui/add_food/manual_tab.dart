@@ -32,6 +32,7 @@ Future<bool> showAddProductDialog({
               TextField(
                 controller: nameController,
                 autofocus: true,
+                textCapitalization: TextCapitalization.sentences,
                 decoration: InputDecoration(labelText: loc.addFoodNameLabel),
               ),
               NumberField(controller: kcalController, labelText: loc.addFoodKcalLabel),
@@ -224,6 +225,7 @@ class _ManualTabState extends ConsumerState<ManualTab> {
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12),
           child: TextField(
+            textCapitalization: TextCapitalization.sentences,
             decoration: InputDecoration(labelText: loc.addFoodSearchLabel),
             onChanged: (value) => setState(() => _query = value),
           ),
