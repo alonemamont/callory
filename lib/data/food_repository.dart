@@ -95,16 +95,14 @@ class FoodRepository implements FoodSource {
 
   @override
   Future<List<FoodResult>> searchByName(String query) async {
-    final escaped = query
-        .toLowerCase()
-        .replaceAll(r'\', r'\\')
-        .replaceAll('%', r'\%')
-        .replaceAll('_', r'\_');
+    final needle = query.toLowerCase();
     final rows = await (db.select(db.privateFoods)
-          ..where((f) => f.name.lower().like('%$escaped%', escapeChar: r'\'))
           ..orderBy([(f) => OrderingTerm.asc(f.name)]))
         .get();
-    return rows.map(_toResult).toList();
+    return rows
+        .where((row) => row.name.toLowerCase().contains(needle))
+        .map(_toResult)
+        .toList();
   }
 
   Future<List<FoodResult>> getRecentFoods({required bool favoritesOnly}) async {
