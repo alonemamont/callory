@@ -92,6 +92,15 @@ void main() {
     expect(entries, isEmpty);
   });
 
+  testWidgets('add product dialog autofocuses the name field', (tester) async {
+    await pumpLauncher(tester);
+
+    final nameField = tester.widget<TextField>(
+      find.widgetWithText(TextField, 'Name'),
+    );
+    expect(nameField.autofocus, true);
+  });
+
   testWidgets('empty name shows an error and creates nothing', (tester) async {
     await pumpLauncher(tester);
 

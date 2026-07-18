@@ -31,6 +31,7 @@ Future<bool> showAddProductDialog({
             children: [
               TextField(
                 controller: nameController,
+                autofocus: true,
                 decoration: InputDecoration(labelText: loc.addFoodNameLabel),
               ),
               NumberField(controller: kcalController, labelText: loc.addFoodKcalLabel),
