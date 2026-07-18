@@ -134,6 +134,12 @@ abstract class AppLocalizations {
   /// **'Language'**
   String get settingsLanguageLabel;
 
+  /// No description provided for @settingsSetGoalsLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Set goals'**
+  String get settingsSetGoalsLabel;
+
   /// No description provided for @settingsGapWindowLabel.
   ///
   /// In en, this message translates to:

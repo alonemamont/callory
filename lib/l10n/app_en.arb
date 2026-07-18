@@ -8,6 +8,7 @@
 
   "settingsTitle": "Settings",
   "settingsLanguageLabel": "Language",
+  "settingsSetGoalsLabel": "Set goals",
   "settingsGapWindowLabel": "Meal grouping gap: {minutes} minutes",
   "@settingsGapWindowLabel": {
     "placeholders": {

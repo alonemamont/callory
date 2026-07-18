@@ -8,6 +8,7 @@
 
   "settingsTitle": "Настройки",
   "settingsLanguageLabel": "Язык",
+  "settingsSetGoalsLabel": "Задать цели",
   "settingsGapWindowLabel": "Интервал группировки приёмов пищи: {minutes} мин",
   "settingsGapWindowSliderLabel": "{minutes} мин",
   "settingsExportButton": "Экспорт данных (JSON)",

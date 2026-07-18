@@ -27,6 +27,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsLanguageLabel => 'Language';
 
   @override
+  String get settingsSetGoalsLabel => 'Set goals';
+
+  @override
   String settingsGapWindowLabel(int minutes) {
     return 'Meal grouping gap: $minutes minutes';
   }

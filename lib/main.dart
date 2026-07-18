@@ -6,7 +6,6 @@ import 'package:callory/providers/providers.dart';
 import 'package:callory/data/settings_service.dart';
 import 'package:callory/ui/day/day_screen.dart';
 import 'package:callory/ui/add_food/add_food_screen.dart';
-import 'package:callory/ui/goals/goals_screen.dart';
 import 'package:callory/ui/settings/settings_screen.dart';
 import 'package:callory/ui/theme/theme.dart';
 
@@ -53,7 +52,6 @@ class _HomeShellState extends State<_HomeShell> {
   static const _screens = [
     DayScreen(),
     AddFoodScreen(),
-    GoalsScreen(),
     SettingsScreen(),
   ];
 
@@ -68,7 +66,6 @@ class _HomeShellState extends State<_HomeShell> {
         destinations: [
           NavigationDestination(icon: const Icon(Icons.today), label: loc.navDay),
           NavigationDestination(icon: const Icon(Icons.add), label: loc.navAdd),
-          NavigationDestination(icon: const Icon(Icons.flag), label: loc.navGoals),
           NavigationDestination(icon: const Icon(Icons.settings), label: loc.navSettings),
         ],
       ),
