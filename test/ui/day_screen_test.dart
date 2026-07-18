@@ -374,7 +374,6 @@ void main() {
       await tester.pumpAndSettle();
 
       await tester.tap(find.text('20'));
-      await tester.tap(find.text('OK'));
       await tester.pumpAndSettle();
 
       expect(find.text('2026-07-20'), findsOneWidget);

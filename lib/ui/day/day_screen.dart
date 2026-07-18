@@ -84,11 +84,20 @@ class DayScreen extends ConsumerWidget {
     WidgetRef ref,
     DateTime selectedDay,
   ) async {
-    final picked = await showDatePicker(
+    final picked = await showDialog<DateTime>(
       context: context,
-      initialDate: selectedDay,
-      firstDate: DateTime(2000),
-      lastDate: DateTime(2100),
+      builder: (context) => Dialog(
+        child: SizedBox(
+          width: 320,
+          height: 400,
+          child: CalendarDatePicker(
+            initialDate: selectedDay,
+            firstDate: DateTime(2000),
+            lastDate: DateTime(2100),
+            onDateChanged: (date) => Navigator.pop(context, date),
+          ),
+        ),
+      ),
     );
     if (picked == null) return;
     ref.read(selectedDayProvider.notifier).state = picked;
